@@ -9,16 +9,15 @@ from googleapiclient.discovery import build
 import os
 import random
 
-TELEGRAM_BOT_TOKEN = '#'
 API_CONFIGS = [
     {
-        'api_key': '#',
+        'api_key': os.environ.get('GEMINI_API_KEY_1'),
     },
     {
-        'api_key': '#',
+        'api_key': os.environ.get('GEMINI_API_KEY_2'),
     },
-        {
-        'api_key': '#',
+    {
+        'api_key': os.environ.get('GEMINI_API_KEY_3'),
     }
 ]
 GEMINI_MODELS = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.0-pro','gemma-3-27b-it'] # 您的 Gemini 模型列表
@@ -26,16 +25,37 @@ current_api_index = 0
 current_model_index = 0
 
 # Google Sheets 配置
-SHEET_ID = '#'
+
+SHEET_ID = os.environ.get('GOOGLE_SHEET_ID')
 SHEET_RANGE = 'A:D'
-CREDENTIALS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'api-project-1081495059044-0a1c9f36f895.json') # 修复路径问题
+
+# 从环境变量中获取 JSON 凭据
+credentials_json_str = os.environ.get('GOOGLE_CREDENTIALS_JSON')
+CREDENTIALS = json.loads(credentials_json_str) if credentials_json_str else None
+
+# 现在你可以直接使用 CREDENTIALS 这个 Python 字典来进行 Google Sheets 的认证
+# 例如，在使用 gspread 库时：
+# gc = gspread.service_account(info=CREDENTIALS)
+
+# 打印一下看看是否成功获取 (调试用)
+print(f"SHEET_ID: {SHEET_ID}")
+print(f"Credentials loaded from environment: {CREDENTIALS is not None}")
+
+
 
 
 user_daily_limit_status = {} # 用于跟踪用户每日翻译状态的字典
 user_remaining_days_status = {} # 用于跟踪用户体验天数状态的字典
 
 # 群组 ID
-GROUP_ID = -1002 # 将 YOUR_GROUP_ID 替换为您的群组 ID
+GROUP_ID = os.environ.get('TELEGRAM_GROUP_ID')
+
+# 确保将获取到的 GROUP_ID 转换为整数，因为环境变量的值通常是字符串
+try:
+    GROUP_ID = int(GROUP_ID)
+except (ValueError, TypeError):
+    print("Error: TELEGRAM_GROUP_ID 环境变量未正确设置或不是有效的整数。")
+    GROUP_ID = None # 或者设置一个默认值，根据你的需求
 
 # 已发送的词汇/句子列表，用于避免重复
 sent_vocabulary = []
