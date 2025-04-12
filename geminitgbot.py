@@ -5,7 +5,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 import google.generativeai as genai
 import re
 import time
-import google.auth
+from google.oauth2 
+import service_account
 from googleapiclient.discovery import build
 import os
 import json
@@ -89,8 +90,14 @@ def clean_text(text):
 
 def get_sheets_service():
     scopes = ['https://www.googleapis.com/auth/spreadsheets']
-    creds = google.auth.load_credentials_from_file(CREDENTIALS_FILE, scopes)[0]
-    return build('sheets', 'v4', credentials=creds)
+    global CREDENTIALS
+    if CREDENTIALS:
+        creds = service_account.Credentials.from_service_account_info(CREDENTIALS, scopes=scopes)
+        logging.debug("使用环境变量中的凭据创建 Google Sheets 服务。")
+        return build('sheets', 'v4', credentials=creds)
+    else:
+        logging.warning("无法创建 Google Sheets 服务，因为凭据未加载。")
+        return None
 
 def get_user_info(user_id):
     service = get_sheets_service()
