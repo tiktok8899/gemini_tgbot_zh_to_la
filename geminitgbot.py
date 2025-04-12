@@ -333,8 +333,10 @@ def reset_user_remaining_days_status(user_id=None):
         logging.info("所有用户的剩余天数状态已重置。")
 
 def main():
+    logging.info("main 函数开始执行...")
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+        logging.info("Telegram Bot ApplicationBuilder 完成。")
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
         button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click)
@@ -343,10 +345,14 @@ def main():
         application.add_handler(translate_handler)
 
         # 添加定时任务，每天凌晨重置用户每日翻译次数 (假设每天 00:00 UTC+7 是 17:00 UTC)
-        application.job_queue.run_daily(reset_user_daily_limit_status, time=time.time() + 25200) # 7 小时 * 3600 秒
+        import datetime
+        target_time = datetime.time(hour=17, minute=0, second=0)
+        application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
+        logging.info(f"每日重置翻译次数任务已添加，将在 {target_time} 执行。")
 
-        # 添加定时任务，每隔 24 小时发送老挝语词汇 (首次延迟 5 秒启动)
-        application.job_queue.run_repeating(send_lao_vocabulary, interval=24 * 3600, first=5)
+        # 添加定时任务，每天发送老挝语词汇 (首次延迟 5 秒启动)
+        application.job_queue.run_daily(send_lao_vocabulary, time=target_time, first=5)
+        logging.info(f"每日发送老挝语词汇任务已添加，将在 {target_time} 执行。")
 
         logging.info("Telegram Bot 开始运行...")
         application.run_polling()
