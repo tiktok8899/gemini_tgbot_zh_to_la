@@ -9,8 +9,22 @@ import google.auth
 from googleapiclient.discovery import build
 import os
 import json
+import base64
 import random
 
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+credentials_base64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64') # 修改环境变量名称
+credentials_json_str = base64.b64decode(credentials_base64).decode('utf-8') if credentials_base64 else None
+
+CREDENTIALS = json.loads(credentials_json_str) if credentials_json_str else None
+
+if CREDENTIALS:
+    logging.info("成功加载凭据。")
+else:
+    logging.warning("GOOGLE_CREDENTIALS 未加载。")
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 
 API_CONFIGS = [
@@ -27,19 +41,6 @@ API_CONFIGS = [
 GEMINI_MODELS = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.0-pro','gemma-3-27b-it'] # 您的 Gemini 模型列表
 current_api_index = 0
 current_model_index = 0
-
-# Google Sheets 配置
-
-SHEET_ID = os.environ.get('GOOGLE_SHEET_ID')
-SHEET_RANGE = 'A:D'
-
-# 从环境变量中获取 JSON 凭据
-credentials_json_str = os.environ.get('GOOGLE_CREDENTIALS_JSON')
-CREDENTIALS = json.loads(credentials_json_str) if credentials_json_str else None
-
-# 现在你可以直接使用 CREDENTIALS 这个 Python 字典来进行 Google Sheets 的认证
-# 例如，在使用 gspread 库时：
-# gc = gspread.service_account(info=CREDENTIALS)
 
 
 user_daily_limit_status = {} # 用于跟踪用户每日翻译状态的字典
