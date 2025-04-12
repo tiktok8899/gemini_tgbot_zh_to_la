@@ -37,12 +37,6 @@ CREDENTIALS = json.loads(credentials_json_str) if credentials_json_str else None
 # 例如，在使用 gspread 库时：
 # gc = gspread.service_account(info=CREDENTIALS)
 
-# 打印一下看看是否成功获取 (调试用)
-print(f"SHEET_ID: {SHEET_ID}")
-print(f"Credentials loaded from environment: {CREDENTIALS is not None}")
-
-
-
 
 user_daily_limit_status = {} # 用于跟踪用户每日翻译状态的字典
 user_remaining_days_status = {} # 用于跟踪用户体验天数状态的字典
