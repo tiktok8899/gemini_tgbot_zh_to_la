@@ -9,6 +9,8 @@ from googleapiclient.discovery import build
 import os
 import random
 
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+
 API_CONFIGS = [
     {
         'api_key': os.environ.get('GEMINI_API_KEY_1'),
