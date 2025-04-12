@@ -1,13 +1,12 @@
-
-import telegram
+Import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
 import google.generativeai as genai
 import re
 import time
-from google.oauth2 
+from google.oauth2
 import service_account
-from googleapiclient.discovery 
+from googleapiclient.discovery
 import build
 import os
 import json
@@ -101,73 +100,83 @@ def get_sheets_service():
 
 def get_user_info(user_id):
     service = get_sheets_service()
-    result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
-    values = result.get('values', [])
-    if values and len(values) > 1:
-        for row in values[1:]:
-            if row[0] == str(user_id):
-                return {
-                    'user_id': row[0],
-                    'username': row[1],
-                    'daily_limit': int(row[2]),
-                    'remaining_days': int(row[3])
-                }
+    if service:
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+            values = result.get('values', [])
+            if values and len(values) > 1:
+                for row in values[1:]:
+                    if row[0] == str(user_id):
+                        return {
+                            'user_id': row[0],
+                            'username': row[1],
+                            'daily_limit': int(row[2]),
+                            'remaining_days': int(row[3])
+                        }
+        except Exception as e:
+            print(f"get_user_info API error: {e}")
     #如果没找到用户信息，默认初始化一个
     return {'user_id': str(user_id), 'username': 'default_user', 'daily_limit': 3, 'remaining_days': 1}
 
 def get_all_user_ids():
     service = get_sheets_service()
-    result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
-    values = result.get('values', [])
-    if values and len(values) > 1:
-        return [int(row[0]) for row in values[1:]]
+    if service:
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+            values = result.get('values', [])
+            if values and len(values) > 1:
+                return [int(row[0]) for row in values[1:]]
+        except Exception as e:
+            print(f"get_all_user_ids API error: {e}")
     return []
 
 def update_user_daily_limit(user_id, daily_limit):
     service = get_sheets_service()
-    result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
-    values = result.get('values', [])
-    if values and len(values) > 1:
-        for i, row in enumerate(values[1:]):
-            if row[0] == str(user_id):
-                body = {
-                    'value_input_option': 'RAW',
-                    'data': [
-                        {
-                            'range': u'工作表1!C{}'.format(i + 2),
-                            'values': [[str(daily_limit)]]
+    if service:
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+            values = result.get('values', [])
+            if values and len(values) > 1:
+                for i, row in enumerate(values[1:]):
+                    if row[0] == str(user_id):
+                        body = {
+                            'value_input_option': 'RAW',
+                            'data': [
+                                {
+                                    'range': u'工作表1!C{}'.format(i + 2),
+                                    'values': [[str(daily_limit)]]
+                                }
+                            ]
                         }
-                    ]
-                }
-                try:
-                    update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
-                    print(f"update_user_daily_limit API response: {update_result}")
-                except Exception as e:
-                    print(f"update_user_daily_limit API error: {e}")
-                return
+                        update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
+                        print(f"update_user_daily_limit API response: {update_result}")
+                        return
+        except Exception as e:
+            print(f"update_user_daily_limit API error: {e}")
 
 def update_user_remaining_days(user_id, remaining_days):
     service = get_sheets_service()
-    result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
-    values = result.get('values', [])
-    if values and len(values) > 1:
-        for i, row in enumerate(values[1:]):
-            if row[0] == str(user_id):
-                body = {
-                    'value_input_option': 'RAW',
-                    'data': [
-                        {
-                            'range': u'工作表1!D{}'.format(i + 2),
-                            'values': [[str(remaining_days)]]
+    if service:
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+            values = result.get('values', [])
+            if values and len(values) > 1:
+                for i, row in enumerate(values[1:]):
+                    if row[0] == str(user_id):
+                        body = {
+                            'value_input_option': 'RAW',
+                            'data': [
+                                {
+                                    'range': u'工作表1!D{}'.format(i + 2),
+                                    'values': [[str(remaining_days)]]
+                                }
+                            ]
                         }
-                    ]
-                }
-                try:
-                    update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
-                    print(f"update_user_remaining_days API response: {update_result}")
-                except Exception as e:
-                    print(f"update_user_remaining_days API error: {e}")
-                return
+                        update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
+                        print(f"update_user_remaining_days API response: {update_result}")
+                        return
+        except Exception as e:
+            print(f"update_user_remaining_days API error: {e}")
 
 async def translate(update, context):
     try:
@@ -293,8 +302,13 @@ def main():
         translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
         application.add_handler(translate_handler)
 
-        # 添加定时任务，每隔 5 * 60s 发送老挝语词汇
-        application.job_queue.run_repeating(send_lao_vocabulary, interval=600 * 60, first=0)
+        # 添加定时任务，每天凌晨重置用户每日翻译次数 (假设每天 00:00 UTC+7 是 17:00 UTC)
+        import datetime
+        target_time = datetime.time(hour=0, minute=0, second=0)
+        application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
+
+        # 添加定时任务，每天发送老挝语词汇 (首次延迟 5 秒启动)
+        application.job_queue.run_daily(send_lao_vocabulary, time=target_time, first=5)
 
         application.run_polling()
     except Exception as e:
@@ -302,3 +316,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
