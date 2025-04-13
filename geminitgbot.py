@@ -300,13 +300,14 @@ def main():
         translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
         application.add_handler(translate_handler)
 
-        # 添加定时任务，每天凌晨重置用户每日翻译次数 (假设每天 00:00 UTC+7 是 17:00 UTC)
+        # 添加定时任务，每天凌晨重置用户每日翻译次数 (假设每天 00:00 UTC+7 是 00:00 UTC)
         import datetime
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
 
         # 添加定时任务，每天发送老挝语词汇 (首次延迟 5 秒启动)
-        application.job_queue.run_daily(send_lao_vocabulary, time=target_time, first=5)
+        application.job_queue.run_once(send_lao_vocabulary, when=5)
+        application.job_queue.run_daily(send_lao_vocabulary, time=target_time)
 
         application.run_polling()
     except Exception as e:
