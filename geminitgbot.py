@@ -126,7 +126,7 @@ def get_user_info(user_id, username='default_user'):
                 body=body
             ).execute()
             logging.info(f"get_user_info added new user {user_id} to Google Sheets: {response}") # 添加日志
-            time.sleep(1) # 添加 1 秒延迟
+            time.sleep(2) # 添加 2 秒延迟
             return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
         except Exception as e:
             logging.error(f"get_user_info error writing new user: {e}") # 添加日志
