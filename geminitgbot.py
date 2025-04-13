@@ -90,6 +90,8 @@ def get_sheets_service():
 def get_user_info(user_id):
     service = get_sheets_service()
     if service:
+        logging.info(f"SHEET_ID 的值: {SHEET_ID}")
+        logging.info(f"SHEET_RANGE 的值 (在 get_user_info 中): {SHEET_RANGE}")
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
@@ -103,6 +105,7 @@ def get_user_info(user_id):
                             'remaining_days': int(row[3])
                         }
         except Exception as e:
+            logging.error(f"get_user_info API error: {e}")
             print(f"get_user_info API error: {e}")
     #如果没找到用户信息，默认初始化一个
     return {'user_id': str(user_id), 'username': 'default_user', 'daily_limit': 3, 'remaining_days': 1}
