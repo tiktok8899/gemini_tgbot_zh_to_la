@@ -240,7 +240,7 @@ async def button_click(update, context):
         if user_id in user_translation_status and user_translation_status[user_id] == 'enabled':
             await translate(update,context)
         else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单选择")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
 
 async def send_lao_vocabulary(context: CallbackContext):
     try:
