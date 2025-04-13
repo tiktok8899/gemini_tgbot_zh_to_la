@@ -125,6 +125,8 @@ def get_all_user_ids():
 def update_user_daily_limit(user_id, daily_limit):
     service = get_sheets_service()
     if service:
+        logging.info(f"update_user_daily_limit - SHEET_ID: {SHEET_ID}")
+        logging.info(f"update_user_daily_limit - SHEET_RANGE: {SHEET_RANGE}")
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
