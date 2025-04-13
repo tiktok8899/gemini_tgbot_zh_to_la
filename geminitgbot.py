@@ -11,6 +11,7 @@ import json
 import base64
 import random
 import logging
+import datetime
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -87,8 +88,9 @@ def get_sheets_service():
         logging.warning("无法创建 Google Sheets 服务，因为凭据未加载。")
         return None
 
-def get_user_info(user_id):
+def get_user_info(user_id, username='default_user'):
     service = get_sheets_service()
+    user_data = None
     if service:
         logging.info(f"SHEET_ID 的值: {SHEET_ID}")
         logging.info(f"SHEET_RANGE 的值 (在 get_user_info 中): {SHEET_RANGE}")
@@ -98,17 +100,37 @@ def get_user_info(user_id):
             if values and len(values) > 1:
                 for row in values[1:]:
                     if row[0] == str(user_id):
-                        return {
+                        user_data = {
                             'user_id': row[0],
                             'username': row[1],
                             'daily_limit': int(row[2]),
                             'remaining_days': int(row[3])
                         }
+                        return user_data
         except Exception as e:
             logging.error(f"get_user_info API error: {e}")
             print(f"get_user_info API error: {e}")
-    #如果没找到用户信息，默认初始化一个
-    return {'user_id': str(user_id), 'username': 'default_user', 'daily_limit': 3, 'remaining_days': 1}
+
+    # 如果没找到用户信息，默认初始化一个并写入 Google Sheets
+    if not user_data:
+        new_user_data = [str(user_id), username, '3', '3']
+        body = {
+            'values': [new_user_data]
+        }
+        try:
+            response = service.spreadsheets().values().append(
+                spreadsheetId=SHEET_ID,
+                range=SHEET_RANGE.split('!')[0],  # 只使用工作表名称，append 会自动追加到末尾
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            print(f"新用户 {user_id} 已添加到 Google Sheets: {response}")
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+        except Exception as e:
+            print(f"向 Google Sheets 写入新用户信息时出错: {e}")
+            # 即使写入失败，也返回默认信息，避免影响后续操作
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+    return user_data
 
 def get_all_user_ids():
     service = get_sheets_service()
@@ -137,7 +159,7 @@ def update_user_daily_limit(user_id, daily_limit):
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': u'UserStats!C{}'.format(i + 2),
+                                    'range': f'UserStats!C{i + 2}',
                                     'values': [[str(daily_limit)]]
                                 }
                             ]
@@ -161,7 +183,7 @@ def update_user_remaining_days(user_id, remaining_days):
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': u'UserStats!D{}'.format(i + 2),
+                                    'range': f'UserStats!D{i + 2}',
                                     'values': [[str(remaining_days)]]
                                 }
                             ]
@@ -174,32 +196,37 @@ def update_user_remaining_days(user_id, remaining_days):
 
 async def translate(update, context):
     try:
-        user_id = update.effective_user.id
-        user_info = get_user_info(user_id) #获取用户信息
+        user = update.effective_user
+        user_id = user.id
+        username = user.username if user.username else 'default_user'
+        user_info = get_user_info(user_id, username)
+
         if user_id not in user_translation_status or user_translation_status[user_id] == 'enabled':
-            # 翻译功能代码
             user_text = update.message.text
             if len(user_text) > 20:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="每次翻译内容不能超过20字。")
                 return
 
-            prompt = f"将以下中文文本翻译成老挝语，并用拉丁语展示老挝语的发音，返回中文注释、老挝语发音和纯汉字谐音。中文文本：{user_text}。格式：\n\n完整翻译：\n发音：（内容用拉丁语）\n纯汉字谐音：\n中文词语分析：（中文词语：老挝词语 （纯汉字谐音））"
-            genai.configure(api_key=get_current_api_config()['api_key'])
-            model = genai.GenerativeModel(get_current_model())
-            response = model.generate_content(prompt)
-            translation = response.text
-            translation = re.sub(r'纯汉字谐音：(.*?)\n', lambda x: f'纯汉字谐音：{re.sub(r"[^\u4e00-\u9fa5]", "", x.group(1))}\n', translation)
+            if user_info['daily_limit'] > 0:
+                prompt = f"将以下中文文本翻译成老挝语，并用拉丁语展示老挝语的发音，返回中文注释、老挝语发音和纯汉字谐音。中文文本：{user_text}。格式：\n\n完整翻译：\n发音：（内容用拉丁语）\n纯汉字谐音：\n中文词语分析：（中文词语：老挝词语 （纯汉字谐音））"
+                genai.configure(api_key=get_current_api_config()['api_key'])
+                model = genai.GenerativeModel(get_current_model())
+                response = model.generate_content(prompt)
+                translation = response.text
+                translation = re.sub(r'纯汉字谐音：(.*?)\n', lambda x: f'纯汉字谐音：{re.sub(r"[^\u4e00-\u9fa5]", "", x.group(1))}\n', translation)
 
-            full_translation = re.search(r'完整翻译：(.*?)发音：', translation, re.DOTALL)
-            latin_pronunciation = re.search(r'发音：(.*?)纯汉字谐音：', translation, re.DOTALL)
-            chinese_homophonic = re.search(r'纯汉字谐音：(.*?)中文词语分析：', translation, re.DOTALL)
-            word_analysis = re.search(r'中文词语分析：(.*)', translation, re.DOTALL)
+                full_translation = re.search(r'完整翻译：(.*?)发音：', translation, re.DOTALL)
+                latin_pronunciation = re.search(r'发音：(.*?)纯汉字谐音：', translation, re.DOTALL)
+                chinese_homophonic = re.search(r'纯汉字谐音：(.*?)中文词语分析：', translation, re.DOTALL)
+                word_analysis = re.search(r'中文词语分析：(.*)', translation, re.DOTALL)
 
-            formatted_translation = f"----------------------------\n🇱🇦正文：\n{clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译结果未找到'}\n\n️发音：\n{clean_text(latin_pronunciation.group(1).strip().replace('。', '\n')) if latin_pronunciation else '拉丁发音结果未找到'}\n\n🇨🇳谐音：\n{clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到'}\n\n中文词语分析：\n{clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到'}\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
+                formatted_translation = f"----------------------------\n🇱🇦正文：\n{clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译结果未找到'}\n\n️发音：\n{clean_text(latin_pronunciation.group(1).strip().replace('。', '\n')) if latin_pronunciation else '拉丁发音结果未找到'}\n\n🇨🇳谐音：\n{clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到'}\n\n中文词语分析：\n{clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到'}\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
 
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_translation, reply_to_message_id=update.message.message_id)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_translation, reply_to_message_id=update.message.message_id)
 
-            update_user_daily_limit(user_id, user_info['daily_limit'] - 1)
+                update_user_daily_limit(user_id, user_info['daily_limit'] - 1)
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="今日翻译次数已用完。")
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭，请点击“翻译开关”开启。")
     except Exception as e:
@@ -207,6 +234,10 @@ async def translate(update, context):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译过程中出现错误。请稍后再试。")
 
 async def start(update, context):
+    user = update.effective_user
+    username = user.username if user.username else 'default_user'
+    get_user_info(user.id, username) # 确保新用户在 /start 时被录入
+
     keyboard = [
         ['账号出售', '网站搭建', 'AI创业'],
         ['网赚资源', '常用工具', '技术指导'],
@@ -216,7 +247,9 @@ async def start(update, context):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="请选择您需要的功能：", reply_markup=reply_markup)
 
 async def button_click(update, context):
-    user_id = update.effective_user.id
+    user = update.effective_user
+    user_id = user.id
+    username = user.username if user.username else 'default_user'
     button_text = update.message.text
 
     if button_text == '翻译开关':
@@ -236,7 +269,7 @@ async def button_click(update, context):
     elif button_text == '返回主键盘':
         await start(update, context) # 调用 start 函数，显示主键盘
     else:
-        #如果不是按钮，并且翻译开关是开启状态，那么就直接调用翻译功能
+        # 如果不是按钮，并且翻译开关是开启状态，那么就直接调用翻译功能
         if user_id in user_translation_status and user_translation_status[user_id] == 'enabled':
             await translate(update,context)
         else:
@@ -245,7 +278,7 @@ async def button_click(update, context):
 async def send_lao_vocabulary(context: CallbackContext):
     try:
         categories = ['交通', '教育', '日常', '工具', '餐饮', '娱乐', '房产', '汽车', '家用', '旅游', '航天', '婚姻', '情感', '社会', '名词', '动词', '代词', '副词', '形容词', '介词', '连接词', '感叹词', '限定词', '时间', '地点', '称呼', '动物', '植物', '行为', '运动', '单位', '数字', '关系', '身体', '颜色', '人体器官']
-        selected_categories = random.sample(categories, 5) # 随机选择 5 个分类
+        selected_categories = random.sample(categories,5) # 随机选择 5 个分类
 
         prompt = f"从以下分类中随机生成 10 个老挝语词汇或句子，并提供中文翻译和拉丁语发音。分类：{', '.join(selected_categories)}。格式：中文：老挝语（谐音用汉语拼音）。已发送的词汇/句子：{sent_vocabulary}"
         genai.configure(api_key=get_current_api_config()['api_key'])
@@ -297,7 +330,6 @@ def main():
         application.add_handler(translate_handler)
 
         # 添加定时任务，每天凌晨重置用户每日翻译次数 (假设每天 00:00 UTC+7 是 00:00 UTC)
-        import datetime
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
 
