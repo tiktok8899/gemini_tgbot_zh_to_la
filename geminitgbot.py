@@ -20,7 +20,7 @@ GEMINI_API_KEY_2 = os.environ.get('GEMINI_API_KEY_2')
 GEMINI_API_KEY_3 = os.environ.get('GEMINI_API_KEY_3')
 GOOGLE_CREDENTIALS_BASE64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64')
 GROUP_ID_STR = os.environ.get('TELEGRAM_GROUP_ID')
-SHEET_ID = os.environ.get('SHEET_ID')  # 显式读取 SHEET_ID 环境变量
+SHEET_ID = os.environ.get('GOOGLE_SHEET_ID')  # 显式读取 SHEET_ID 环境变量
 SHEET_RANGE = os.environ.get('SHEET_RANGE')  # 显式读取 SHEET_RANGE 环境变量
 
 credentials_json_str = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8') if GOOGLE_CREDENTIALS_BASE64 else None
