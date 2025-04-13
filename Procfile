@@ -1,1 +1,1 @@
-web: python3 flasksheets.py
+web: python flasksheets.py
