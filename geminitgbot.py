@@ -137,7 +137,7 @@ def update_user_daily_limit(user_id, daily_limit):
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': u'用户翻译次数管理!C{}'.format(i + 2),
+                                    'range': u'UserStats!C{}'.format(i + 2),
                                     'values': [[str(daily_limit)]]
                                 }
                             ]
@@ -161,7 +161,7 @@ def update_user_remaining_days(user_id, remaining_days):
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': u'用户翻译次数管理!D{}'.format(i + 2),
+                                    'range': u'UserStats!D{}'.format(i + 2),
                                     'values': [[str(remaining_days)]]
                                 }
                             ]
