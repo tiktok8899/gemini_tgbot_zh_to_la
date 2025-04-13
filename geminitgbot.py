@@ -253,7 +253,7 @@ async def start(update, context):
 async def button_click(update, context):
     user = update.effective_user
     user_id = user.id
-    username = user.username if user.username else 'default_user'
+    # username = user.username if user.username else 'default_user' # 不需要在这里获取 username 并调用 get_user_info
     button_text = update.message.text
 
     if button_text == '翻译开关':
