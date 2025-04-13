@@ -1,11 +1,13 @@
-import telegram
+Import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
 import google.generativeai as genai
 import re
 import time
-from google.oauth2 import service_account  # 正确的导入方式
-from googleapiclient.discovery import build  # 正确的导入方式
+from google.oauth2
+import service_account
+from googleapiclient.discovery
+import build
 import os
 import json
 import base64
@@ -14,8 +16,16 @@ import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-credentials_base64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64') # 修改环境变量名称
-credentials_json_str = base64.b64decode(credentials_base64).decode('utf-8') if credentials_base64 else None
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+GEMINI_API_KEY_1 = os.environ.get('GEMINI_API_KEY_1')
+GEMINI_API_KEY_2 = os.environ.get('GEMINI_API_KEY_2')
+GEMINI_API_KEY_3 = os.environ.get('GEMINI_API_KEY_3')
+GOOGLE_CREDENTIALS_BASE64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64')
+GROUP_ID_STR = os.environ.get('TELEGRAM_GROUP_ID')
+SHEET_ID = os.environ.get('SHEET_ID')  # 显式读取 SHEET_ID 环境变量
+SHEET_RANGE = os.environ.get('SHEET_RANGE')  # 显式读取 SHEET_RANGE 环境变量
+
+credentials_json_str = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8') if GOOGLE_CREDENTIALS_BASE64 else None
 
 CREDENTIALS = json.loads(credentials_json_str) if credentials_json_str else None
 
@@ -23,44 +33,27 @@ if CREDENTIALS:
     logging.info("成功加载凭据。")
 else:
     logging.warning("GOOGLE_CREDENTIALS 未加载。")
-TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+
+# 确保将获取到的 GROUP_ID 转换为整数
+try:
+    GROUP_ID = int(GROUP_ID_STR) if GROUP_ID_STR else None
+except (ValueError, TypeError):
+    print("Error: TELEGRAM_GROUP_ID 环境变量未正确设置或不是有效的整数。")
+    GROUP_ID = None
 
 API_CONFIGS = [
-    {
-        'api_key': os.environ.get('GEMINI_API_KEY_1'),
-    },
-    {
-        'api_key': os.environ.get('GEMINI_API_KEY_2'),
-    },
-    {
-        'api_key': os.environ.get('GEMINI_API_KEY_3'),
-    }
+    {'api_key': GEMINI_API_KEY_1},
+    {'api_key': GEMINI_API_KEY_2},
+    {'api_key': GEMINI_API_KEY_3}
 ]
-GEMINI_MODELS = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.0-pro','gemma-3-27b-it'] # 您的 Gemini 模型列表
+GEMINI_MODELS = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.0-pro','gemma-3-27b-it']
 current_api_index = 0
 current_model_index = 0
 
-
-user_daily_limit_status = {} # 用于跟踪用户每日翻译状态的字典
-user_remaining_days_status = {} # 用于跟踪用户体验天数状态的字典
-
-# 群组 ID
-GROUP_ID = os.environ.get('TELEGRAM_GROUP_ID')
-
-# 确保将获取到的 GROUP_ID 转换为整数，因为环境变量的值通常是字符串
-try:
-    GROUP_ID = int(GROUP_ID)
-except (ValueError, TypeError):
-    print("Error: TELEGRAM_GROUP_ID 环境变量未正确设置或不是有效的整数。")
-    GROUP_ID = None # 或者设置一个默认值，根据你的需求
-
-# 已发送的词汇/句子列表，用于避免重复
+user_daily_limit_status = {}
+user_remaining_days_status = {}
 sent_vocabulary = []
-
-# 用户状态字典，用于跟踪用户是否启用了翻译功能
 user_translation_status = {}
-
-#一级菜单的列表
 main_keyboard_buttons = ['账号出售', '网站搭建', 'AI创业','网赚资源', '常用工具', '技术指导']
 
 def get_current_api_config():
