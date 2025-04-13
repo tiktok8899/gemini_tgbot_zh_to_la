@@ -48,7 +48,6 @@ API_CONFIGS = [
 GEMINI_MODELS = ['gemini-2.0-flash-exp-image-generation', 'gemini-2.0-pro','gemma-3-27b-it']
 current_api_index = 0
 current_model_index = 0
-
 user_daily_limit_status = {}
 user_remaining_days_status = {}
 sent_vocabulary = []
@@ -135,8 +134,6 @@ def get_user_info(user_id, username='default_user'):
             return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
     logging.info(f"get_user_info returning user_data: {user_data}") # 添加日志
     return user_data
-
-
 
 def get_all_user_ids():
     service = get_sheets_service()
