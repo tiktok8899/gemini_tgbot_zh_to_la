@@ -4,10 +4,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 import google.generativeai as genai
 import re
 import time
-from google.oauth2
-import service_account
-from googleapiclient.discovery
-import build
+from google.oauth2 import service_account  # 正确的导入方式
+from googleapiclient.discovery import build  # 正确的导入方式
 import os
 import json
 import base64
