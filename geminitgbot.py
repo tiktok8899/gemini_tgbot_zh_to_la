@@ -91,6 +91,7 @@ def get_sheets_service():
 def get_user_info(user_id, username='default_user'):
     service = get_sheets_service()
     user_data = None
+    logging.info(f"get_user_info called for user_id: {user_id}") # 添加日志
     if service:
         logging.info(f"SHEET_ID 的值: {SHEET_ID}")
         logging.info(f"SHEET_RANGE 的值 (在 get_user_info 中): {SHEET_RANGE}")
@@ -106,6 +107,7 @@ def get_user_info(user_id, username='default_user'):
                             'daily_limit': int(row[2]),
                             'remaining_days': int(row[3])
                         }
+                        logging.info(f"get_user_info found existing user: {user_data}") # 添加日志
                         return user_data
         except Exception as e:
             logging.error(f"get_user_info API error: {e}")
@@ -124,12 +126,15 @@ def get_user_info(user_id, username='default_user'):
                 valueInputOption='RAW',
                 body=body
             ).execute()
-            print(f"新用户 {user_id} 已添加到 Google Sheets: {response}")
+            logging.info(f"get_user_info added new user {user_id} to Google Sheets: {response}") # 添加日志
             return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
         except Exception as e:
+            logging.error(f"get_user_info error writing new user: {e}") # 添加日志
             print(f"向 Google Sheets 写入新用户信息时出错: {e}")
             return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+    logging.info(f"get_user_info returning user_data: {user_data}") # 添加日志
     return user_data
+
 
 def get_all_user_ids():
     service = get_sheets_service()
