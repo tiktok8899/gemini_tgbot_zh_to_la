@@ -1,1 +1,1 @@
-web: python geminitgbot.py
+web: python3 flasksheets.py
