@@ -32,7 +32,7 @@ if ADMIN_IDS_STR:
     try:
         ADMIN_IDS = json.loads(ADMIN_IDS_STR)
     except json.JSONDecodeError:
-        # 如果不是 JSON，则尝试按逗号或其他分隔符分割
+        # 如果不是 JSON，则按逗号或其他分隔符分割
         ADMIN_IDS = [int(id.strip()) for id in ADMIN_IDS_STR.split(',')]
 
 # 确保 ADMIN_IDS 中的元素是整数
