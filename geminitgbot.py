@@ -391,13 +391,18 @@ async def start(update, context):
     get_user_info(user.id, username) # 确保新用户在 /start 时被录入
 
     if user.id in ADMIN_IDS:
-        # 管理员键盘
-        admin_keyboard = [
-            ['查看统计', '设置次数'],
-            ['发送广播']
+        # 管理员按钮
+        admin_keyboard = [['查看统计', '设置次数', '发送广播']]
+        # 普通用户按钮
+        user_keyboard = [
+            ['账号出售', '网站搭建', 'AI创业'],
+            ['网赚资源', '常用工具', '技术指导'],
+            ['翻译开关', '我的资料']
         ]
-        reply_markup = ReplyKeyboardMarkup(admin_keyboard, resize_keyboard=True)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="欢迎，管理员！请选择要执行的操作：", reply_markup=reply_markup)
+        # 合并两个键盘
+        merged_keyboard = admin_keyboard + user_keyboard
+        reply_markup = ReplyKeyboardMarkup(merged_keyboard, resize_keyboard=True)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="欢迎，管理员！以下是管理功能和常用功能：", reply_markup=reply_markup)
     else:
         # 普通用户键盘
         keyboard = [
@@ -407,6 +412,7 @@ async def start(update, context):
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await context.bot.send_message(chat_id=update.effective_chat.id, text="请选择您需要的功能：", reply_markup=reply_markup)
+
 
 async def admin_button_click(update: Update, context: CallbackContext):
     user = update.effective_user
