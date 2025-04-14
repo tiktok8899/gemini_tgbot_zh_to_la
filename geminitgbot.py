@@ -90,69 +90,48 @@ def get_sheets_service():
 def get_user_info(user_id, username='default_user'):
     service = get_sheets_service()
     user_data = None
-    logging.info(f"get_user_info called for user_id: {user_id}")
-    
+    logging.info(f"get_user_info called for user_id: {user_id}") # 添加日志
     if service:
+        logging.info(f"SHEET_ID 的值: {SHEET_ID}")
+        logging.info(f"SHEET_RANGE 的值 (在 get_user_info 中): {SHEET_RANGE}")
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
-            
-            # 1. 添加更详细的日志
-            logging.info(f"Retrieved values from sheet: {values}")
-            
-            # 2. 确保有数据且至少有标题行
-            if values and len(values) > 0:
-                # 3. 遍历所有行寻找用户
-                for row in values[1:]:  # 跳过标题行
-                    if len(row) >= 4 and row[0] == str(user_id):  # 确保行有足够的列
+            if values and len(values) > 1:
+                for row in values[1:]:
+                    if row[0] == str(user_id):
                         user_data = {
                             'user_id': row[0],
                             'username': row[1],
-                            'daily_limit': int(row[2]) if row[2].isdigit() else 3,  # 添加数字验证
-                            'remaining_days': int(row[3]) if row[3].isdigit() else 3
+                            'daily_limit': int(row[2]),
+                            'remaining_days': int(row[3])
                         }
-                        logging.info(f"Found existing user: {user_data}")
+                        logging.info(f"get_user_info found existing user: {user_data}") # 添加日志
                         return user_data
-                
-                # 4. 如果用户不存在，添加新用户
-                if not user_data:
-                    new_user_data = [str(user_id), username, '3', '3']
-                    body = {
-                        'values': [new_user_data]
-                    }
-                    try:
-                        # 5. 使用追加操作添加新用户
-                        response = service.spreadsheets().values().append(
-                            spreadsheetId=SHEET_ID,
-                            range=SHEET_RANGE,
-                            valueInputOption='RAW',
-                            insertDataOption='INSERT_ROWS',  # 明确指定插入方式
-                            body=body
-                        ).execute()
-                        logging.info(f"Added new user: {response}")
-                        
-                        # 6. 返回新用户数据
-                        return {
-                            'user_id': str(user_id),
-                            'username': username,
-                            'daily_limit': 3,
-                            'remaining_days': 3
-                        }
-                    except Exception as e:
-                        logging.error(f"Error adding new user: {e}")
-                        raise
-                        
         except Exception as e:
-            logging.error(f"Error in get_user_info: {e}")
-            raise
-            
-    # 7. 如果服务不可用，返回默认值
-    return {
-        'user_id': str(user_id),
-        'username': username,
-        'daily_limit': 3,
-        'remaining_days': 3
-    }
+            logging.error(f"get_user_info API error: {e}")
+            print(f"get_user_info API error: {e}")
+
+    # 如果完全没有找到用户信息，则写入新用户
+    if not user_data:
+        new_user_data = [str(user_id), username, '3', '3']
+        body = {
+            'values': [new_user_data]
+        }
+        try:
+            response = service.spreadsheets().values().append(
+                spreadsheetId=SHEET_ID,
+                range=SHEET_RANGE.split('!')[0],  # 只使用工作表名称
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            logging.info(f"get_user_info added new user {user_id} to Google Sheets: {response}") # 添加日志
+            time.sleep(2) # 添加 2 秒延迟
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+        except Exception as e:
+            logging.error(f"get_user_info error writing new user: {e}") # 添加日志
+            print(f"向 Google Sheets 写入新用户信息时出错: {e}")
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
     logging.info(f"get_user_info returning user_data: {user_data}") # 添加日志
     return user_data
 
@@ -179,63 +158,46 @@ def update_user_daily_limit(user_id, daily_limit):
             if values and len(values) > 1:
                 for i, row in enumerate(values[1:]):
                     if row[0] == str(user_id):
-                        row_number = i + 2  # 找到匹配用户的行号（注意跳过标题行）
                         body = {
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': f'UserStats!C{row_number}',
+                                    'range': f'UserStats!C{i + 2}',
                                     'values': [[str(daily_limit)]]
                                 }
                             ]
                         }
                         update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
                         print(f"update_user_daily_limit API response: {update_result}")
-                        return
-                print(f"警告：找不到用户 ID {user_id} 来更新每日限制。")
+                        return  # 找到并更新后就返回
+                print(f"警告：找不到用户 ID {user_id} 来更新每日限制。") # 如果遍历完没有找到匹配的 ID
         except Exception as e:
             print(f"update_user_daily_limit API error: {e}")
 
-def update_user_daily_limit(user_id, daily_limit):
+def update_user_remaining_days(user_id, remaining_days):
     service = get_sheets_service()
     if service:
         try:
-            # 1. 首先获取当前数据
-            result = service.spreadsheets().values().get(
-                spreadsheetId=SHEET_ID,
-                range=SHEET_RANGE
-            ).execute()
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
-            
-            # 2. 查找用户行
-            row_number = None
-            for i, row in enumerate(values[1:], start=2):  # 从第2行开始，因为第1行是标题
-                if row[0] == str(user_id):
-                    row_number = i
-                    break
-            
-            if row_number:
-                # 3. 更新指定单元格
-                range_name = f'{SHEET_RANGE.split("!")[0]}!C{row_number}'
-                body = {
-                    'values': [[str(daily_limit)]]
-                }
-                update_result = service.spreadsheets().values().update(
-                    spreadsheetId=SHEET_ID,
-                    range=range_name,
-                    valueInputOption='RAW',
-                    body=body
-                ).execute()
-                logging.info(f"Updated daily limit for user {user_id}: {update_result}")
-                return True
-            else:
-                logging.warning(f"User {user_id} not found for daily limit update")
-                return False
-                
+            if values and len(values) > 1:
+                for i, row in enumerate(values[1:]):
+                    if row[0] == str(user_id):
+                        body = {
+                            'value_input_option': 'RAW',
+                            'data': [
+                                {
+                                    'range': f'UserStats!D{i + 2}',
+                                    'values': [[str(remaining_days)]]
+                                }
+                            ]
+                        }
+                        update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
+                        print(f"update_user_remaining_days API response: {update_result}")
+                        return
+                print(f"警告：找不到用户 ID {user_id} 来更新剩余天数。")
         except Exception as e:
-            logging.error(f"Error updating daily limit: {e}")
-            return False
-    return False
+            print(f"update_user_remaining_days API error: {e}")
 
 
 async def translate(update, context):
