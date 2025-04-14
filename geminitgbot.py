@@ -456,10 +456,11 @@ async def handle_admin_input(update: Update, context: CallbackContext):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此操作。")
 
 async def button_click(update, context):
-    logging.info(f"button_click 被调用，消息文本为: '{update.message.text}'，用户 ID: {update.effective_user.id}")
     user = update.effective_user
+    logging.info(f"button_click 被调用，消息文本为: '{update.message.text}'，用户 ID: {user.id}")
     if user.id in ADMIN_IDS:
         await admin_button_click(update, context)
+        return # 添加 return 语句，阻止后续处理
     else:
         # 普通用户的按钮点击逻辑
         button_text = update.message.text
