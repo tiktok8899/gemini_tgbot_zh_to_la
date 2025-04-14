@@ -53,7 +53,7 @@ user_remaining_days_status = {}
 sent_vocabulary = []
 user_translation_status = {}
 main_keyboard_buttons = ['账号出售', '网站搭建', 'AI创业','网赚资源', '常用工具', '技术指导']
-ADMIN_IDS = [YOUR_ADMIN_TELEGRAM_ID] # 替换为你的 Telegram ID
+ADMIN_IDS = [7137722967] # 替换为你的 Telegram ID
 
 def get_current_api_config():
     return API_CONFIGS[current_api_index]
