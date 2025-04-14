@@ -457,12 +457,8 @@ async def handle_admin_input(update: Update, context: CallbackContext):
 async def button_click(update, context):
     user = update.effective_user
     logging.info(f"button_click 被调用，消息文本为: '{update.message.text}'，用户 ID: {user.id}")
-    if update.message.reply_markup is None: # 判断是否是普通文本消息
-        return # 不是按钮点击，不处理，让后续 Handler 处理
-
     if user.id in ADMIN_IDS:
         await admin_button_click(update, context)
-        return
     else:
         # 普通用户的按钮点击逻辑
         button_text = update.message.text
@@ -483,12 +479,6 @@ async def button_click(update, context):
             await start(update, context)
         elif button_text == '我的资料':
             await profile(update, context)
-        else:
-            if user.id in user_translation_status and user_translation_status[user.id] == 'enabled':
-                await translate(update,context)
-            else:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
-
 
 async def send_lao_vocabulary(context: CallbackContext):
     try:
@@ -553,14 +543,14 @@ def main():
         application.add_handler(admin_broadcast_handler)
 
         # 消息 Handler (注意顺序)
-        button_handler = MessageHandler(Filters.TEXT, button_click) # 正确创建 button_handler
-        application.add_handler(button_handler)
-        admin_input_handler = MessageHandler(Filters.TEXT, handle_admin_input)
+        admin_input_handler = MessageHandler(Filters.TEXT & Filters.user(ADMIN_IDS), handle_admin_input) # 只处理管理员的文本输入
         application.add_handler(admin_input_handler)
-        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
-        application.add_handler(translate_handler)
         feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
         application.add_handler(feedback_message_handler)
+        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click) # 处理按钮点击
+        application.add_handler(button_handler)
+        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
+        application.add_handler(translate_handler)
 
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
