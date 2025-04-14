@@ -433,8 +433,7 @@ async def admin_button_click(update: Update, context: CallbackContext):
 
 async def handle_admin_input(update: Update, context: CallbackContext):
     user = update.effective_user
-    logging.info(f"handle_admin_input called by user ID: {user.id}")
-    logging.info(f"context.user_data: {context.user_data}")
+    logging.info(f"handle_admin_input called by user ID: {user.id}, context.user_data: {context.user_data}")
     if user.id in ADMIN_IDS:
         if context.user_data.get('expecting_admin_set_limit'):
             logging.info("expecting_admin_set_limit is True")
