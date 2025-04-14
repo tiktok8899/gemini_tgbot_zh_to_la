@@ -216,7 +216,7 @@ async def translate(update, context):
         if user_id not in user_translation_status or user_translation_status[user_id] == 'enabled':
             user_text = update.message.text
             if len(user_text) > 20:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="每次翻译内容不能超过20字。")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="免费用户每次翻译内容不能超过20字，文字较多可以断句分次发送。")
                 return
 
             if user_info['daily_limit'] > 0:
@@ -238,9 +238,9 @@ async def translate(update, context):
 
                 update_user_daily_limit(user_id, user_info['daily_limit'] - 1)
             else:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="今日翻译次数已用完。")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="今日翻译次数已用完，明日可以继续使用，升级为vip用户体验更完美")
         else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭，请点击“翻译开关”开启。")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭，请在下方键盘点击“翻译开关”开启。")
     except Exception as e:
         print(f"translate 函数出错：{e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译过程中出现错误。请稍后再试。")
