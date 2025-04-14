@@ -1,4 +1,4 @@
-import telegram
+niimport telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
 import google.generativeai as genai
@@ -162,14 +162,14 @@ def update_user_daily_limit(user_id, daily_limit):
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
-            if values and len(values) > 1:
-                for i, row in enumerate(values[1:]):
+            if values: # 确保有数据
+                for i, row in enumerate(values): # 从 values 的第一个元素开始遍历
                     if row[0] == str(user_id):
                         body = {
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': f'UserStats!C{i + 2}',
+                                    'range': f'UserStats!C{i + 2}', # 行号应该是 i + 2
                                     'values': [[str(daily_limit)]]
                                 }
                             ]
