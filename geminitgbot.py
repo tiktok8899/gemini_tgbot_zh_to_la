@@ -380,7 +380,7 @@ async def translate(update, context):
                 model = genai.GenerativeModel(get_current_model())
                 response = model.generate_content(prompt)
                 translation = response.text
-                translation = re.sub(r'纯汉字谐音：(.*?)\n', lambda x: f'纯汉字谐音：{re.sub(r"[^\u4e00-\u9fa5]", "", x.group(1))}\n', translation)
+                translation = re.sub(r'纯汉字谐音：(.*?)\n', lambda x: f'纯汉字谐音:{re.sub(r"[^\u4e00-\u9fa5]", "", x.group(1))}\n', translation)
 
                 full_translation = re.search(r'完整翻译：(.*?)发音：', translation, re.DOTALL)
                 latin_pronunciation = re.search(r'发音：(.*?)纯汉字谐音：', translation, re.DOTALL)
