@@ -23,6 +23,23 @@ GOOGLE_CREDENTIALS_BASE64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64')
 GROUP_ID_STR = os.environ.get('TELEGRAM_GROUP_ID')
 SHEET_ID = os.environ.get('GOOGLE_SHEET_ID')  # 显式读取 SHEET_ID 环境变量
 SHEET_RANGE = os.environ.get('SHEET_RANGE')  # 显式读取 SHEET_RANGE 环境变量
+# 从环境变量中读取 ADMIN_IDS
+ADMIN_IDS_STR = os.environ.get('YOUR_ADMIN_TELEGRAM_ID')
+ADMIN_IDS = []
+
+if ADMIN_IDS_STR:
+    # 尝试将其解析为 JSON 列表
+    try:
+        ADMIN_IDS = json.loads(ADMIN_IDS_STR)
+    except json.JSONDecodeError:
+        # 如果不是 JSON，则尝试按逗号或其他分隔符分割
+        ADMIN_IDS = [int(id.strip()) for id in ADMIN_IDS_STR.split(',')]
+
+# 确保 ADMIN_IDS 中的元素是整数
+ADMIN_IDS = [int(id) for id in ADMIN_IDS if isinstance(id, (str, int)) and str(id).isdigit()]
+
+# 打印加载的管理员 ID（用于调试）
+logging.info(f"加载的管理员 IDs: {ADMIN_IDS}")
 
 credentials_json_str = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8') if GOOGLE_CREDENTIALS_BASE64 else None
 
@@ -53,7 +70,6 @@ user_remaining_days_status = {}
 sent_vocabulary = []
 user_translation_status = {}
 main_keyboard_buttons = ['账号出售', '网站搭建', 'AI创业','网赚资源', '常用工具', '技术指导']
-ADMIN_IDS = [YOUR_ADMIN_TELEGRAM_ID] # 替换为你的 Telegram ID
 
 def get_current_api_config():
     return API_CONFIGS[current_api_index]
@@ -487,6 +503,7 @@ def main():
         application.add_handler(feedback_handler)
         feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
         application.add_handler(feedback_message_handler)
+        admin_input_handler = MessageHandler(Filters.TEXT & Filters.user(ADMIN_IDS), handle_admin_input)
         admin_stats_handler = CommandHandler('admin_stats', admin_stats)
         application.add_handler(admin_stats_handler)
         admin_set_limit_handler = CommandHandler('admin_set_limit', admin_set_limit)
