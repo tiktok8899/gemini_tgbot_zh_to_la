@@ -448,7 +448,7 @@ async def button_click(update, context):
     if user.id in ADMIN_IDS:
         await admin_button_click(update, context)
     else:
-        # 普通用户的按钮点击逻辑保持不变
+        # 普通用户的按钮点击逻辑
         button_text = update.message.text
         if button_text == '翻译开关':
             if user.id not in user_translation_status or user_translation_status[user.id] == 'disabled':
@@ -468,10 +468,11 @@ async def button_click(update, context):
         elif button_text == '我的资料':
             await profile(update, context)
         else:
-            if user.id in user_translation_status and user_translation_status[user_id] == 'enabled':
+            if user.id in user_translation_status and user_translation_status[user.id] == 'enabled':
                 await translate(update,context)
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
+
 
 async def send_lao_vocabulary(context: CallbackContext):
     try:
