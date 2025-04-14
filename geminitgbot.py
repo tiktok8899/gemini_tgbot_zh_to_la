@@ -489,27 +489,30 @@ def reset_user_remaining_days_status(user_id=None):
 def main():
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+        # 命令 Handler
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
-        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click)
-        application.add_handler(button_handler)
-        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
-        application.add_handler(translate_handler)
         history_handler = CommandHandler('history', history)
         application.add_handler(history_handler)
         profile_handler = CommandHandler('profile', profile)
         application.add_handler(profile_handler)
         feedback_handler = CommandHandler('feedback', feedback)
         application.add_handler(feedback_handler)
-        feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
-        application.add_handler(feedback_message_handler)
-        admin_input_handler = MessageHandler(Filters.TEXT & Filters.user(ADMIN_IDS), handle_admin_input)
         admin_stats_handler = CommandHandler('admin_stats', admin_stats)
         application.add_handler(admin_stats_handler)
         admin_set_limit_handler = CommandHandler('admin_set_limit', admin_set_limit)
         application.add_handler(admin_set_limit_handler)
         admin_broadcast_handler = CommandHandler('admin_broadcast', admin_broadcast)
         application.add_handler(admin_broadcast_handler)
+        
+        # 消息 Handler (注意顺序)
+        feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
+        application.add_handler(feedback_message_handler)
+        admin_input_handler = MessageHandler(Filters.TEXT & Filters.user(ADMIN_IDS), handle_admin_input)
+        application.add_handler(admin_input_handler)
+        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click) # 处理按钮点击和普通翻译
+        application.add_handler(button_handler)
 
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
