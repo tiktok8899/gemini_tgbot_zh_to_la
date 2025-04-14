@@ -53,6 +53,7 @@ user_remaining_days_status = {}
 sent_vocabulary = []
 user_translation_status = {}
 main_keyboard_buttons = ['账号出售', '网站搭建', 'AI创业','网赚资源', '常用工具', '技术指导']
+ADMIN_IDS = [YOUR_ADMIN_TELEGRAM_ID] # 替换为你的 Telegram ID
 
 def get_current_api_config():
     return API_CONFIGS[current_api_index]
@@ -87,6 +88,27 @@ def get_sheets_service():
         logging.warning("无法创建 Google Sheets 服务，因为凭据未加载。")
         return None
 
+async def save_translation_history(user_id, original_text, translated_text):
+    service = get_sheets_service()
+    if service:
+        history_sheet_name = 'TranslationHistory'
+        timestamp = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime('%Y-%m-%d %H:%M:%S') # 老挝时间
+        new_record = [str(user_id), timestamp, original_text, translated_text]
+        body = {
+            'values': [new_record]
+        }
+        try:
+            response = service.spreadsheets().values().append(
+                spreadsheetId=SHEET_ID,
+                range=history_sheet_name,
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+            logging.info(f"保存翻译历史到 Google Sheets: {response}")
+        except Exception as e:
+            logging.error(f"保存翻译历史时出错: {e}")
+            print(f"保存翻译历史时出错: {e}")
+
 def get_user_info(user_id, username='default_user'):
     service = get_sheets_service()
     user_data = None
@@ -104,7 +126,8 @@ def get_user_info(user_id, username='default_user'):
                             'user_id': row[0],
                             'username': row[1],
                             'daily_limit': int(row[2]),
-                            'remaining_days': int(row[3])
+                            'remaining_days': int(row[3]),
+                            'join_date': row[4] if len(row) > 4 else datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime('%Y-%m-%d') # 获取加入日期，如果不存在则设置当前日期
                         }
                         logging.info(f"get_user_info found existing user: {user_data}")
                         return user_data
@@ -114,7 +137,7 @@ def get_user_info(user_id, username='default_user'):
 
     # 如果完全没有找到用户信息，则写入新用户
     if not user_data:
-        new_user_data = [str(user_id), username, '3', '3']
+        new_user_data = [str(user_id), username, '3', '3', datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime('%Y-%m-%d')] # 添加加入日期
         body = {
             'values': [new_user_data]
         }
@@ -134,11 +157,11 @@ def get_user_info(user_id, username='default_user'):
             logging.info(f"get_user_info - Verification read after append: {verification_values}")
             print(f"get_user_info - Verification read after append: {verification_values}") # 打印验证结果
 
-            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3, 'join_date': datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime('%Y-%m-%d')}
         except Exception as e:
             logging.error(f"get_user_info error writing new user: {e}")
             print(f"向 Google Sheets 写入新用户信息时出错: {e}")
-            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3, 'join_date': datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime('%Y-%m-%d')}
     logging.info(f"get_user_info returning user_data: {user_data}")
     return user_data
 
@@ -148,8 +171,8 @@ def get_all_user_ids():
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
-            if values and len(values) > 1:
-                return [int(row[0]) for row in values[1:]]
+            if values:
+                return [int(row[0]) for row in values]
         except Exception as e:
             print(f"get_all_user_ids API error: {e}")
     return []
@@ -187,8 +210,8 @@ def update_user_remaining_days(user_id, remaining_days):
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
             values = result.get('values', [])
-            if values and len(values) > 1:
-                for i, row in enumerate(values[1:]):
+            if values:
+                for i, row in enumerate(values):
                     if row[0] == str(user_id):
                         body = {
                             'value_input_option': 'RAW',
@@ -205,6 +228,122 @@ def update_user_remaining_days(user_id, remaining_days):
                 print(f"警告：找不到用户 ID {user_id} 来更新剩余天数。")
         except Exception as e:
             print(f"update_user_remaining_days API error: {e}")
+
+async def history(update: Update, context: CallbackContext):
+    user_id = update.effective_user.id
+    service = get_sheets_service()
+    if service:
+        history_sheet_name = 'TranslationHistory'
+        range_name = f'{history_sheet_name}!A:D'
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=range_name).execute()
+            values = result.get('values', [])
+            history_records = []
+            if values:
+                # 跳过标题行（如果存在）
+                for row in values:
+                    if row and row[0] == str(user_id):
+                        history_records.append(f"时间: {row[1]}\n原文: {row[2]}\n译文: {row[3]}\n------------------")
+            if history_records:
+                history_text = "\n".join(history_records[-10:]) # 显示最近 10 条
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=f"您的最近翻译历史 (最多 10 条):\n\n{history_text}")
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="您还没有任何翻译历史记录。")
+        except Exception as e:
+            logging.error(f"/history 命令出错: {e}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="获取翻译历史时出错，请稍后再试。")
+
+async def profile(update: Update, context: CallbackContext):
+    user = update.effective_user
+    user_id = user.id
+    user_info = get_user_info(user_id)
+    if user_info:
+        profile_text = f"**您的个人资料**\n\n用户ID: `{user_info['user_id']}`\n用户名: `{user_info['username']}`\n今日剩余翻译次数: `{user_info['daily_limit']}`\n加入日期: `{user_info['join_date']}`"
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=profile_text, parse_mode=telegram.constants.ParseMode.MARKDOWN)
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="无法获取您的个人资料。")
+
+async def feedback(update: Update, context: CallbackContext):
+    await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送您的反馈或建议。")
+    context.user_data['expecting_feedback'] = True
+
+async def handle_feedback_message(update: Update, context: CallbackContext):
+    if context.user_data.get('expecting_feedback'):
+        user = update.effective_user
+        feedback_text = update.message.text
+        # 这里可以将反馈发送给管理员或者保存到 Google Sheets
+        admin_chat_id = GROUP_ID # 假设将反馈发送到你的群组
+        feedback_message = f"**新反馈：**\n用户ID: `{user.id}`\n用户名: `{user.username}`\n内容:\n{feedback_text}"
+        try:
+            await context.bot.send_message(chat_id=admin_chat_id, text=feedback_message, parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="感谢您的反馈！")
+        except Exception as e:
+            logging.error(f"发送反馈给管理员时出错: {e}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="发送反馈时出错，请稍后再试。")
+        finally:
+            context.user_data['expecting_feedback'] = False
+
+async def admin_stats(update: Update, context: CallbackContext):
+    user = update.effective_user
+    if user.id in ADMIN_IDS:
+        service = get_sheets_service()
+        if service:
+            range_name = f'{SHEET_RANGE.split("!")[0]}!A:C' # 获取用户 ID
+            try:
+                result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=range_name).execute()
+                values = result.get('values', [])
+                if values:
+                    stats_text = "**用户统计：**\n"
+                    for row in values:
+                        if row:
+                            user_id = row[0]
+                            translations_left = row[2] if len(row) > 2 else 'N/A'
+                            stats_text += f"用户ID: `{user_id}`, 剩余次数: `{translations_left}`\n"
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text=stats_text, parse_mode=telegram.constants.ParseMode.MARKDOWN)
+                else:
+                    await context.bot.send_message(chat_id=update.effective_chat.id, text="没有找到任何用户数据。")
+            except Exception as e:
+                logging.error(f"/admin_stats 命令出错: {e}")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="获取用户统计时出错。")
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="无法连接到 Google Sheets。")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
+
+async def admin_set_limit(update: Update, context: CallbackContext):
+    user = update.effective_user
+    if user.id in ADMIN_IDS:
+        if len(context.args) == 2 and context.args[0].isdigit() and context.args[1].isdigit():
+            target_user_id = int(context.args[0])
+            new_limit = int(context.args[1])
+            update_user_daily_limit(target_user_id, new_limit)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"已将用户ID `{target_user_id}` 的每日翻译次数设置为 `{new_limit}`。", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法: `/admin_set_limit <用户ID> <新的次数>`")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
+
+async def admin_broadcast(update: Update, context: CallbackContext):
+    user = update.effective_user
+    if user.id in ADMIN_IDS:
+        if context.args:
+            message = " ".join(context.args)
+            user_ids = get_all_user_ids()
+            sent_count = 0
+            failed_count = 0
+            for user_id in user_ids:
+                try:
+                    await context.bot.send_message(chat_id=user_id, text=f"**管理员广播：**\n{message}", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+                    sent_count += 1
+                    time.sleep(0.1) # 避免过于频繁发送
+                except Exception as e:
+                    logging.error(f"向用户 {user_id} 发送广播消息失败: {e}")
+                    failed_count += 1
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"广播消息已发送给 {sent_count} 位用户，{failed_count} 位发送失败。")
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法: `/admin_broadcast <要发送的消息>`")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
 
 async def translate(update, context):
     try:
@@ -237,6 +376,7 @@ async def translate(update, context):
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_translation, reply_to_message_id=update.message.message_id)
 
                 update_user_daily_limit(user_id, user_info['daily_limit'] - 1)
+                await save_translation_history(user_id, user_text, clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译失败')
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="今日翻译次数已用完，明日可以继续使用，升级为vip用户体验更完美")
         else:
@@ -250,18 +390,19 @@ async def start(update, context):
     username = user.username if user.username else 'default_user'
     get_user_info(user.id, username) # 确保新用户在 /start 时被录入
 
+    welcome_message = f"你好，{user.first_name}！欢迎使用老挝语翻译助手。\n\n你可以直接发送中文文本进行翻译。\n\n**主要功能：**\n- 翻译中文到老挝语 (附带拉丁发音和汉字谐音)\n- 查看你的翻译历史 (使用 /history 命令)\n- 查看个人资料 (使用 /profile 命令 或点击下方按钮)\n- 开启/关闭翻译功能 (点击下方“翻译开关”)\n\n请选择您需要的功能："
+
     keyboard = [
         ['账号出售', '网站搭建', 'AI创业'],
         ['网赚资源', '常用工具', '技术指导'],
-        ['翻译开关']
+        ['翻译开关', '我的资料']
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="请选择您需要的功能：", reply_markup=reply_markup)
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message, reply_markup=reply_markup)
 
 async def button_click(update, context):
     user = update.effective_user
     user_id = user.id
-    # username = user.username if user.username else 'default_user' # 不需要在这里获取 username 并调用 get_user_info
     button_text = update.message.text
 
     if button_text == '翻译开关':
@@ -272,16 +413,16 @@ async def button_click(update, context):
             user_translation_status[user_id] = 'disabled'
             await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭。")
     elif button_text in main_keyboard_buttons:
-        # 显示二级键盘
-        keyboard = [['1', '2', '3'], ['4', '5', '6'], ['返回主键盘']] # 示例二级键盘，包含返回主键盘按钮
+        keyboard = [['1', '2', '3'], ['4', '5', '6'], ['返回主键盘']]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"请选择 {button_text} 的子功能：", reply_markup=reply_markup)
-    elif button_text in ['1', '2', '3', '4', '5', '6']: # 二级键盘上的数字按钮
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"您选择了 {button_text}。") # 这里可以添加二级键盘数字按钮对应的功能
+    elif button_text in ['1', '2', '3', '4', '5', '6']:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"您选择了 {button_text}。")
     elif button_text == '返回主键盘':
-        await start(update, context) # 调用 start 函数，显示主键盘
+        await start(update, context)
+    elif button_text == '我的资料':
+        await profile(update, context)
     else:
-        # 如果不是按钮，并且翻译开关是开启状态，那么就直接调用翻译功能
         if user_id in user_translation_status and user_translation_status[user_id] == 'enabled':
             await translate(update,context)
         else:
@@ -290,7 +431,7 @@ async def button_click(update, context):
 async def send_lao_vocabulary(context: CallbackContext):
     try:
         categories = ['交通', '教育', '日常', '工具', '餐饮', '娱乐', '房产', '汽车', '家用', '旅游', '航天', '婚姻', '情感', '社会', '名词', '动词', '代词', '副词', '形容词', '介词', '连接词', '感叹词', '限定词', '时间', '地点', '称呼', '动物', '植物', '行为', '运动', '单位', '数字', '关系', '身体', '颜色', '人体器官']
-        selected_categories = random.sample(categories,5) # 随机选择 5 个分类
+        selected_categories = random.sample(categories,5)
 
         prompt = f"从以下分类中随机生成 10 个老挝语词汇或句子，并提供中文翻译和拉丁语发音。分类：{', '.join(selected_categories)}。格式：中文：老挝语（谐音用汉语拼音）。已发送的词汇/句子：{sent_vocabulary}"
         genai.configure(api_key=get_current_api_config()['api_key'])
@@ -298,7 +439,6 @@ async def send_lao_vocabulary(context: CallbackContext):
         response = model.generate_content(prompt)
         vocabulary = response.text
 
-        # 将新生成的词汇/句子添加到已发送列表
         new_vocabulary = re.findall(r'^(.*?): (.*?)\((.*?)\)', vocabulary, re.MULTILINE)
         if new_vocabulary:
             sent_vocabulary.extend([item[1] for item in new_vocabulary])
@@ -317,7 +457,6 @@ async def send_lao_vocabulary(context: CallbackContext):
 
     except Exception as e:
         print(f"send_lao_vocabulary 函数出错：{e}")
-
 
 def reset_user_daily_limit_status():
     global user_daily_limit_status
@@ -340,12 +479,23 @@ def main():
         application.add_handler(button_handler)
         translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
         application.add_handler(translate_handler)
+        history_handler = CommandHandler('history', history)
+        application.add_handler(history_handler)
+        profile_handler = CommandHandler('profile', profile)
+        application.add_handler(profile_handler)
+        feedback_handler = CommandHandler('feedback', feedback)
+        application.add_handler(feedback_handler)
+        feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
+        application.add_handler(feedback_message_handler)
+        admin_stats_handler = CommandHandler('admin_stats', admin_stats)
+        application.add_handler(admin_stats_handler)
+        admin_set_limit_handler = CommandHandler('admin_set_limit', admin_set_limit)
+        application.add_handler(admin_set_limit_handler)
+        admin_broadcast_handler = CommandHandler('admin_broadcast', admin_broadcast)
+        application.add_handler(admin_broadcast_handler)
 
-        # 添加定时任务，每天凌晨重置用户每日翻译次数 (假设每天 00:00 UTC+7 是 00:00 UTC)
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
-
-        # 添加定时任务，每天发送老挝语词汇 (首次延迟 5 秒启动)
         application.job_queue.run_once(send_lao_vocabulary, when=5)
         application.job_queue.run_daily(send_lao_vocabulary, time=target_time)
 
