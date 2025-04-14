@@ -549,7 +549,7 @@ def main():
         application.add_handler(admin_broadcast_handler)
 
         # 消息 Handler (注意顺序)
-        button_handler = MessageHandler(Filters.TEXT, button_click)
+        button_handler = MessageHandler(Filters.TEXT, button_click) # 正确创建 button_handler
         application.add_handler(button_handler)
         admin_input_handler = MessageHandler(Filters.TEXT, handle_admin_input)
         application.add_handler(admin_input_handler)
