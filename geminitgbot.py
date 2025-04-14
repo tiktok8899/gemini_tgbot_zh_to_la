@@ -32,10 +32,17 @@ if ADMIN_IDS_STR:
     try:
         ADMIN_IDS = json.loads(ADMIN_IDS_STR)
     except json.JSONDecodeError:
-        # 如果不是 JSON，则按逗号或其他分隔符分割
-        ADMIN_IDS = [int(id.strip()) for id in ADMIN_IDS_STR.split(',')]
+        # 如果不是 JSON，则尝试按逗号或其他分隔符分割
+        potential_ids = [id.strip() for id in ADMIN_IDS_STR.split(',')]
+        ADMIN_IDS = [int(id) for id in potential_ids if id.isdigit()]
+    except TypeError:
+        # 如果 ADMIN_IDS_STR 可以直接转换为 int (单个ID)
+        try:
+            ADMIN_IDS = [int(ADMIN_IDS_STR)]
+        except ValueError:
+            logging.warning(f"无法解析 ADMIN_IDS_STR: '{ADMIN_IDS_STR}' 为整数或列表。")
 
-# 确保 ADMIN_IDS 中的元素是整数
+# 确保 ADMIN_IDS 中的元素是整数 (再次检查，以防万一)
 ADMIN_IDS = [int(id) for id in ADMIN_IDS if isinstance(id, (str, int)) and str(id).isdigit()]
 
 # 打印加载的管理员 ID（用于调试）
