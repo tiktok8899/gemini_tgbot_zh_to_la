@@ -109,8 +109,8 @@ def get_user_info(user_id, username='default_user'):
                         logging.info(f"get_user_info found existing user: {user_data}") # 添加日志
                         return user_data
         except Exception as e:
-            logging.error(f"get_user_info API error: {e}")
-            print(f"get_user_info API error: {e}")
+            logging.error(f"get_user_info API error (read): {e}")
+            print(f"get_user_info API error (read): {e}")
 
     # 如果完全没有找到用户信息，则写入新用户
     if not user_data:
@@ -126,8 +126,26 @@ def get_user_info(user_id, username='default_user'):
                 body=body
             ).execute()
             logging.info(f"get_user_info added new user {user_id} to Google Sheets: {response}") # 添加日志
-            time.sleep(2) # 添加 2 秒延迟
-            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3}
+            time.sleep(2) # 稍微等待
+            # 再次尝试读取用户信息
+            try:
+                result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+                values = result.get('values', [])
+                if values and len(values) > 1:
+                    for row in values[1:]:
+                        if row[0] == str(user_id):
+                            user_data = {
+                                'user_id': row[0],
+                                'username': row[1],
+                                'daily_limit': int(row[2]),
+                                'remaining_days': int(row[3])
+                            }
+                            logging.info(f"get_user_info (after write) found user: {user_data}")
+                            return user_data
+            except Exception as e:
+                logging.error(f"get_user_info API error (read after write): {e}")
+                print(f"get_user_info API error (read after write): {e}")
+            return {'user_id': str(user_id), 'username': username, 'daily_limit': 3, 'remaining_days': 3} # 如果再次读取失败，返回默认值
         except Exception as e:
             logging.error(f"get_user_info error writing new user: {e}") # 添加日志
             print(f"向 Google Sheets 写入新用户信息时出错: {e}")
