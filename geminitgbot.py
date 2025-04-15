@@ -548,10 +548,14 @@ def main():
         application.add_handler(start_handler)
 
         async def admin_button_handler_callback(update: Update, context: CallbackContext):
-            if update.message.text in ['查看统计', '设置次数', '发送广播']:
-                await admin_button_click(update, context)
-            else:
-                return None
+    user = update.effective_user
+    print(f"admin_button_handler_callback called for user {user.id} with text: {update.message.text}")
+    print(f"context.user_data for chat {update.effective_chat.id}: {context.user_data.get(update.effective_chat.id)}")
+    if update.message.text in ['查看统计', '设置次数', '发送广播']:
+        context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_action'] = True # 添加一个通用标志
+        await admin_button_click(update, context)
+    else:
+        return None
 
         admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), admin_button_handler_callback)
         application.add_handler(admin_button_handler)
