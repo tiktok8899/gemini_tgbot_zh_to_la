@@ -531,10 +531,11 @@ def reset_user_remaining_days_status(user_id=None):
 class ExpectingAdminInput(MessageFilter):
     def filter(self, message: telegram.Message) -> bool:
         user_id = message.from_user.id
+        context = CallbackContext.get_instance(message._bot) # 获取当前机器人的上下文
         return user_id in ADMIN_IDS and (
-            message.chat.id in message._bot.application.user_data and (
-                message._bot.application.user_data[message.chat.id].get('expecting_admin_set_limit') is True or
-                message._bot.application.user_data[message.chat.id].get('expecting_admin_broadcast') is True
+            message.chat.id in context.user_data and (
+                context.user_data[message.chat.id].get('expecting_admin_set_limit') is True or
+                context.user_data[message.chat.id].get('expecting_admin_broadcast') is True
             )
         )
 
