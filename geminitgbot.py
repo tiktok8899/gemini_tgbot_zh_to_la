@@ -445,11 +445,20 @@ async def handle_admin_input(update: Update, context: CallbackContext):
 
 async def button_click(update, context):
     user = update.effective_user
+    button_text = update.message.text
     if user.id in ADMIN_IDS:
-        await admin_button_click(update, context)
+        if button_text == '查看统计':
+            await admin_stats(update, context)
+        elif button_text == '设置次数':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            context.user_data['expecting_admin_set_limit'] = True
+        elif button_text == '发送广播':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
+            context.user_data['expecting_admin_broadcast'] = True
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效的管理操作。")
     else:
         # 普通用户的按钮点击逻辑保持不变
-        button_text = update.message.text
         if button_text == '翻译开关':
             if user.id not in user_translation_status or user_translation_status[user.id] == 'disabled':
                 user_translation_status[user.id] = 'enabled'
@@ -468,7 +477,7 @@ async def button_click(update, context):
         elif button_text == '我的资料':
             await profile(update, context)
         else:
-            if user.id in user_translation_status and user_translation_status[user_id] == 'enabled':
+            if user.id in user_translation_status and user_translation_status[user.id] == 'enabled':
                 await translate(update,context)
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
