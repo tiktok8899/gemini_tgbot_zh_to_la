@@ -23,27 +23,12 @@ GOOGLE_CREDENTIALS_BASE64 = os.environ.get('GOOGLE_CREDENTIALS_BASE64')
 GROUP_ID_STR = os.environ.get('TELEGRAM_GROUP_ID')
 SHEET_ID = os.environ.get('GOOGLE_SHEET_ID')  # 显式读取 SHEET_ID 环境变量
 SHEET_RANGE = os.environ.get('SHEET_RANGE')  # 显式读取 SHEET_RANGE 环境变量
-# 从环境变量中读取 ADMIN_IDS
-ADMIN_IDS_STR = os.environ.get('YOUR_ADMIN_TELEGRAM_ID')
-ADMIN_IDS = []
 
-if ADMIN_IDS_STR:
-    # 尝试将其解析为 JSON 列表
-    try:
-        ADMIN_IDS = json.loads(ADMIN_IDS_STR)
-    except json.JSONDecodeError:
-        # 如果不是 JSON，则尝试按逗号或其他分隔符分割
-        potential_ids = [id.strip() for id in ADMIN_IDS_STR.split(',')]
-        ADMIN_IDS = [int(id) for id in potential_ids if id.isdigit()]
-    except TypeError:
-        # 如果 ADMIN_IDS_STR 可以直接转换为 int (单个ID)
-        try:
-            ADMIN_IDS = [int(ADMIN_IDS_STR)]
-        except ValueError:
-            logging.warning(f"无法解析 ADMIN_IDS_STR: '{ADMIN_IDS_STR}' 为整数或列表。")
+# 直接在代码中设置 ADMIN_IDS
+ADMIN_IDS = [7137722967]  # 将 YOUR_ADMIN_ID_HERE 替换为你的 Telegram ID，多个ID用逗号分隔，例如 [123456789, 987654321]
 
-# 删除或注释掉这一行：
-# ADMIN_IDS = [int(id) for id in ADMIN_IDS if isinstance(id, (str, int)) and str(id).isdigit()]
+# 确保 ADMIN_IDS 中的元素是整数
+ADMIN_IDS = [int(id) for id in ADMIN_IDS if isinstance(id, (str, int)) and str(id).isdigit()]
 
 # 打印加载的管理员 ID（用于调试）
 logging.info(f"加载的管理员 IDs: {ADMIN_IDS}")
@@ -302,7 +287,7 @@ async def handle_feedback_message(update: Update, context: CallbackContext):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="感谢您的反馈！")
         except Exception as e:
             logging.error(f"发送反馈给管理员时出错: {e}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="发送反馈时出错，请稍后再试。")
+            await context.bot.send_message(chat_id=update.effective_chat_id=update.effective_chat.id, text="发送反馈时出错，请稍后再试。")
         finally:
             context.user_data['expecting_feedback'] = False
 
@@ -493,6 +478,39 @@ def reset_user_remaining_days_status(user_id=None):
     else:
         user_remaining_days_status = {}
 
+async def handle_admin_input(update: Update, context: CallbackContext):
+    message_text = update.message.text
+    if message_text.startswith("/setlimit"):
+        parts = message_text.split()
+        if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
+            target_user_id = int(parts[1])
+            new_limit = int(parts[2])
+            update_user_daily_limit(target_user_id, new_limit)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"管理员操作：已将用户 {target_user_id} 的每日限制设置为 {new_limit}。")
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法：/setlimit <用户ID> <新的限制次数>")
+    elif message_text.startswith("/broadcast"):
+        message = message_text[len("/broadcast"):].strip()
+        if message:
+            user_ids = get_all_user_ids()
+            sent_count = 0
+            failed_count = 0
+            for user_id in user_ids:
+                try:
+                    await context.bot.send_message(chat_id=user_id, text=f"**管理员广播：**\n{message}", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+                    sent_count += 1
+                    time.sleep(0.1)
+                except Exception as e:
+                    logging.error(f"向用户 {user_id} 发送广播消息失败: {e}")
+                    failed_count += 1
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"管理员广播：已发送给 {sent_count} 位用户，{failed_count} 位发送失败。")
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法：/broadcast <要广播的消息>")
+    elif message_text == "/stats":
+        await admin_stats(update, context)
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="未知管理员命令。")
+
 def main():
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -512,7 +530,7 @@ def main():
         application.add_handler(admin_set_limit_handler)
         admin_broadcast_handler = CommandHandler('admin_broadcast', admin_broadcast)
         application.add_handler(admin_broadcast_handler)
-        
+
         # 消息 Handler (注意顺序)
         feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
         application.add_handler(feedback_message_handler)
