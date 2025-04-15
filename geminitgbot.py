@@ -527,17 +527,23 @@ def reset_user_remaining_days_status(user_id=None):
             del user_remaining_days_status[user_id]
     else:
         user_remaining_days_status = {}
-
+        
 def main():
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
 
-        # 先添加处理管理员按钮点击和输入的 Handler
-        admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS) & Filters.regex(r'^(查看统计|设置次数|发送广播)$'), admin_button_click)
+        # 修改后的 admin_button_handler
+        admin_button_handler = MessageHandler(
+            Filters.TEXT & Filters.User(ADMIN_IDS),
+            lambda update, context: admin_button_click(update, context)
+            if update.message.text in ['查看统计', '设置次数', '发送广播']
+            else None
+        )
         application.add_handler(admin_button_handler)
 
+        # 修改后的 admin_input_handler
         admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
         application.add_handler(admin_input_handler)
 
