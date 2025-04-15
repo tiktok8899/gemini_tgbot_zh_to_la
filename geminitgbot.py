@@ -535,17 +535,17 @@ def main():
         application.add_handler(start_handler)
 
         # 先添加处理管理员按钮点击和输入的 Handler
-        admin_button_handler = MessageHandler(Filters.TEXT & Filters.user(ADMIN_IDS) & Filters.regex(r'^(查看统计|设置次数|发送广播)$'), admin_button_click)
+        admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS) & Filters.regex(r'^(查看统计|设置次数|发送广播)$'), admin_button_click)
         application.add_handler(admin_button_handler)
 
-        admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.user(ADMIN_IDS), handle_admin_input)
+        admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
         application.add_handler(admin_input_handler)
 
         # 再添加处理普通用户按钮点击和翻译的 Handler
-        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.user(ADMIN_IDS)), button_click)
+        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), button_click)
         application.add_handler(button_handler)
 
-        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.user(ADMIN_IDS)), translate)
+        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), translate)
         application.add_handler(translate_handler)
 
         history_handler = CommandHandler('history', history)
