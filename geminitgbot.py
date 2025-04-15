@@ -535,12 +535,13 @@ def main():
         application.add_handler(start_handler)
 
         # 再次修改后的 admin_button_handler
-        admin_button_handler = MessageHandler(
-            Filters.TEXT & Filters.User(ADMIN_IDS),
-            lambda update, context: admin_button_click(update, context)
-            if update.message.text in ['查看统计', '设置次数', '发送广播']
-            else None  # 返回 None 表示不处理
-        )
+        async def admin_button_handler_callback(update: Update, context: CallbackContext):
+            if update.message.text in ['查看统计', '设置次数', '发送广播']:
+                await admin_button_click(update, context)
+            else:
+                return None
+
+        admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), admin_button_handler_callback)
         application.add_handler(admin_button_handler)
 
         admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
