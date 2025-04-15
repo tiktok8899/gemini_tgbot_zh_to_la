@@ -547,21 +547,21 @@ def main():
         application.add_handler(start_handler)
 
         async def admin_button_handler_callback(update: Update, context: CallbackContext):
-    if update.message.text in ['查看统计']:
-        await admin_button_click(update, context)
-    elif update.message.text == '设置次数':
-        context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_limit'] = True
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-        print(f"Admin {update.effective_user.id}: expecting_admin_set_limit set to True in admin_button_click")
-    elif update.message.text == '发送广播':
-        context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_broadcast'] = True
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
-        print(f"Admin {update.effective_user.id}: expecting_admin_broadcast set to True in admin_button_click")
-    elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_set_limit') and update.message.text != '设置次数':
-        await handle_admin_input(update, context)
-    elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_broadcast') and update.message.text != '发送广播':
-        await handle_admin_input(update, context)
-    return None
+            if update.message.text in ['查看统计']:
+                await admin_button_click(update, context)
+            elif update.message.text == '设置次数':
+                context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_limit'] = True
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+                print(f"Admin {update.effective_user.id}: expecting_admin_set_limit set to True in admin_button_click")
+            elif update.message.text == '发送广播':
+                context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_broadcast'] = True
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
+                print(f"Admin {update.effective_user.id}: expecting_admin_broadcast set to True in admin_button_click")
+            elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_set_limit') and update.message.text != '设置次数':
+                await handle_admin_input(update, context)
+            elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_broadcast') and update.message.text != '发送广播':
+                await handle_admin_input(update, context)
+                return None
 
         admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), admin_button_handler_callback)
         application.add_handler(admin_button_handler)
