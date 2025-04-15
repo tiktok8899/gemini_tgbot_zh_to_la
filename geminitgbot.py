@@ -547,7 +547,7 @@ def main():
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
 
-        async def admin_button_handler_callback(update: Update, context: CallbackContext):
+async def admin_button_handler_callback(update: Update, context: CallbackContext):
     user = update.effective_user
     print(f"admin_button_handler_callback called for user {user.id} with text: {update.message.text}")
     print(f"context.user_data for chat {update.effective_chat.id}: {context.user_data.get(update.effective_chat.id)}")
