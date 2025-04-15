@@ -533,11 +533,26 @@ async def handle_admin_input(update: Update, context: CallbackContext):
 async def button_click(update, context):
     user = update.effective_user
     button_text = update.message.text
-    if user.id not in ADMIN_IDS:
+    if user.id in ADMIN_IDS:
+        if button_text == '📊 查看统计':
+            await admin_stats(update, context)
+        elif button_text == '🔢 设置次数':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            context.user_data['expecting_admin_set_limit'] = True
+        elif button_text == '🗓️ 设置天数':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置天数的用户ID和新的天数，格式为：`用户ID 新的天数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            context.user_data['expecting_admin_set_days'] = True
+        elif button_text == '📢 发送广播':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
+            context.user_data['expecting_admin_broadcast'] = True
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效的管理操作。")
+    else:
         # 普通用户的按钮点击逻辑
-        if button_text == '🔄 翻译开关' or button_text == '🚫 关闭翻译':
+        if button_text == '🔄 翻译开关':
             if user.id not in user_translation_status or user_translation_status[user.id] == 'disabled':
                 user_translation_status[user.id] = 'enabled'
+                # 更新按钮文本为“关闭翻译”
                 keyboard = [
                     ['💰 账号出售', '🌐 网站搭建', '🚀 AI创业'],
                     ['💸 网赚资源', '🛠️ 常用工具', '👨‍🏫 技术指导'],
@@ -547,6 +562,7 @@ async def button_click(update, context):
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已开启。", reply_markup=reply_markup)
             else:
                 user_translation_status[user.id] = 'disabled'
+                # 更新按钮文本为“开启翻译”
                 keyboard = [
                     ['💰 账号出售', '🌐 网站搭建', '🚀 AI创业'],
                     ['💸 网赚资源', '🛠️ 常用工具', '👨‍🏫 技术指导'],
@@ -564,12 +580,30 @@ async def button_click(update, context):
             await start(update, context)
         elif button_text == '👤 我的资料':
             await profile(update, context)
+        elif button_text in ['🔄 开启翻译', '🚫 关闭翻译']: # 处理动态变化的翻译按钮点击
+            if button_text == '🔄 开启翻译':
+                user_translation_status[user.id] = 'enabled'
+                keyboard = [
+                    ['💰 账号出售', '🌐 网站搭建', '🚀 AI创业'],
+                    ['💸 网赚资源', '🛠️ 常用工具', '👨‍🏫 技术指导'],
+                    ['🚫 关闭翻译', '👤 我的资料']
+                ]
+                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已开启。", reply_markup=reply_markup)
+            elif button_text == '🚫 关闭翻译':
+                user_translation_status[user.id] = 'disabled'
+                keyboard = [
+                    ['💰 账号出售', '🌐 网站搭建', '🚀 AI创业'],
+                    ['💸 网赚资源', '🛠️ 常用工具', '👨‍🏫 技术指导'],
+                    ['🔄 开启翻译', '👤 我的资料']
+                ]
+                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭。", reply_markup=reply_markup)
         else:
             if user.id in user_translation_status and user_translation_status[user.id] == 'enabled':
                 await translate(update,context)
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
-
 
 async def send_lao_vocabulary(context: CallbackContext):
     try:
