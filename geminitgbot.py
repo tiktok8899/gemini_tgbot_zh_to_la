@@ -288,7 +288,7 @@ async def admin_stats(update: Update, context: CallbackContext):
     if user.id in ADMIN_IDS:
         service = get_sheets_service()
         if service:
-            range_name = f'{SHEET_RANGE.split("!")[0]}!A:C' # 获取用户 ID
+            range_name = f'{SHEET_RANGE.split("!")[0]}!A:C' # 获取用户 ID 和剩余次数
             try:
                 result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=range_name).execute()
                 values = result.get('values', [])
@@ -323,11 +323,11 @@ async def admin_set_limit(update: Update, context: CallbackContext):
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
 
-async def admin_broadcast(update: Update, context: CallbackContext):
+async def admin_broadcast(update: Update, context: CallbackContext, broadcast_message=None):
     user = update.effective_user
     if user.id in ADMIN_IDS:
-        if context.args:
-            message = " ".join(context.args)
+        if broadcast_message:
+            message = broadcast_message[0]
             user_ids = get_all_user_ids()
             sent_count = 0
             failed_count = 0
@@ -341,7 +341,7 @@ async def admin_broadcast(update: Update, context: CallbackContext):
                     failed_count += 1
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f"广播消息已发送给 {sent_count} 位用户，{failed_count} 位发送失败。")
         else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法: `/admin_broadcast <要发送的消息>`")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法: 请在点击“发送广播”后直接输入要发送的消息。")
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
 
@@ -500,7 +500,7 @@ async def send_lao_vocabulary(context: CallbackContext):
         new_vocabulary = re.findall(r'^(.*?): (.*?)\((.*?)\)', vocabulary, re.MULTILINE)
         if new_vocabulary:
             sent_vocabulary.extend([item[1] for item in new_vocabulary])
-
+            
         user_ids = get_all_user_ids()
         for user_id in user_ids:
             try:
@@ -527,7 +527,7 @@ def reset_user_remaining_days_status(user_id=None):
             del user_remaining_days_status[user_id]
     else:
         user_remaining_days_status = {}
-        
+
 def main():
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
