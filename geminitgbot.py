@@ -240,7 +240,7 @@ async def history(update: Update, context: CallbackContext):
     service = get_sheets_service()
     if service:
         history_sheet_name = 'TranslationHistory'
-        range_name = f'{history_sheet_name}!A:D'
+        range_name = f'{history_sheet_name}!A2:D'
         try:
             result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=range_name).execute()
             values = result.get('values', [])
@@ -298,7 +298,7 @@ async def admin_stats(update: Update, context: CallbackContext):
     if user.id in ADMIN_IDS:
         service = get_sheets_service()
         if service:
-            range_name = f'{SHEET_RANGE.split("!")[0]}!A:D'  # 获取用户 ID 和剩余次数
+            range_name = f'{SHEET_RANGE.split("!")[0]}!A2:D'  # 获取用户 ID 和剩余次数
             try:
                 result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=range_name).execute()
                 values = result.get('values', [])
