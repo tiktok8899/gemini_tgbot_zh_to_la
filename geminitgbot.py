@@ -431,7 +431,7 @@ async def admin_button_click(update: Update, context: CallbackContext):
 async def handle_admin_input(update: Update, context: CallbackContext):
     user = update.effective_user
     if user.id in ADMIN_IDS:
-        print(f"Admin {user.id} sent: {update.message.text}, context.user_data: {context.user_data}")
+        print(f"handle_admin_input called for admin {user.id} with text: {update.message.text}, context.user_data: {context.user_data}")
         if context.user_data.get('expecting_admin_set_limit'):
             text = update.message.text
             parts = text.split()
@@ -534,7 +534,7 @@ def main():
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
 
-        # 再次修改后的 admin_button_handler
+        # 先添加处理管理员按钮点击的 Handler
         async def admin_button_handler_callback(update: Update, context: CallbackContext):
             if update.message.text in ['查看统计', '设置次数', '发送广播']:
                 await admin_button_click(update, context)
@@ -544,6 +544,7 @@ def main():
         admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), admin_button_handler_callback)
         application.add_handler(admin_button_handler)
 
+        # 将 admin_input_handler 放在 button_handler 之前
         admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
         application.add_handler(admin_input_handler)
 
