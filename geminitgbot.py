@@ -539,7 +539,7 @@ def main():
             Filters.TEXT & Filters.User(ADMIN_IDS),
             lambda update, context: admin_button_click(update, context)
             if update.message.text in ['查看统计', '设置次数', '发送广播']
-            else False  # 返回 False 表示不处理
+            else None  # 返回 None 表示不处理
         )
         application.add_handler(admin_button_handler)
 
