@@ -24,15 +24,6 @@ GROUP_ID_STR = os.environ.get('TELEGRAM_GROUP_ID')
 SHEET_ID = os.environ.get('GOOGLE_SHEET_ID')  # 显式读取 SHEET_ID 环境变量
 SHEET_RANGE = os.environ.get('SHEET_RANGE')  # 显式读取 SHEET_RANGE 环境变量
 
-# 直接在代码中设置 ADMIN_IDS
-ADMIN_IDS = [7137722967]  # 将 YOUR_ADMIN_ID_HERE 替换为你的 Telegram ID，多个ID用逗号分隔，例如 [123456789, 987654321]
-
-# 确保 ADMIN_IDS 中的元素是整数
-ADMIN_IDS = [int(id) for id in ADMIN_IDS if isinstance(id, (str, int)) and str(id).isdigit()]
-
-# 打印加载的管理员 ID（用于调试）
-logging.info(f"加载的管理员 IDs: {ADMIN_IDS}")
-
 credentials_json_str = base64.b64decode(GOOGLE_CREDENTIALS_BASE64).decode('utf-8') if GOOGLE_CREDENTIALS_BASE64 else None
 
 CREDENTIALS = json.loads(credentials_json_str) if credentials_json_str else None
@@ -62,6 +53,7 @@ user_remaining_days_status = {}
 sent_vocabulary = []
 user_translation_status = {}
 main_keyboard_buttons = ['账号出售', '网站搭建', 'AI创业','网赚资源', '常用工具', '技术指导']
+ADMIN_IDS = [7137722967] # 替换为你的 Telegram ID
 
 def get_current_api_config():
     return API_CONFIGS[current_api_index]
@@ -287,7 +279,7 @@ async def handle_feedback_message(update: Update, context: CallbackContext):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="感谢您的反馈！")
         except Exception as e:
             logging.error(f"发送反馈给管理员时出错: {e}")
-            await context.bot.send_message(chat_id=update.effective_chat_id, text="发送反馈时出错，请稍后再试。")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="发送反馈时出错，请稍后再试。")
         finally:
             context.user_data['expecting_feedback'] = False
 
@@ -372,30 +364,14 @@ async def translate(update, context):
                 model = genai.GenerativeModel(get_current_model())
                 response = model.generate_content(prompt)
                 translation = response.text
-
-                def replace_non_chinese(match):
-                    cleaned_text = re.sub(r"[^\u4e00-\u9fa5]", "", match.group(1))
-                    return f'纯汉字谐音:{cleaned_text}\n'
-
-                translation = re.sub(r'纯汉字谐音：(.*?)\n', replace_non_chinese, translation)
+                translation = re.sub(r'纯汉字谐音：(.*?)\n', lambda x: f'纯汉字谐音：{re.sub(r"[^\u4e00-\u9fa5]", "", x.group(1))}\n', translation)
 
                 full_translation = re.search(r'完整翻译：(.*?)发音：', translation, re.DOTALL)
                 latin_pronunciation = re.search(r'发音：(.*?)纯汉字谐音：', translation, re.DOTALL)
                 chinese_homophonic = re.search(r'纯汉字谐音：(.*?)中文词语分析：', translation, re.DOTALL)
                 word_analysis = re.search(r'中文词语分析：(.*)', translation, re.DOTALL)
 
-                translation_parts = [
-                    "----------------------------\n🇱🇦正文：\n",
-                    clean_text(full_translation.group(1).strip()).replace('。', '\n') if full_translation else '翻译结果未找到',
-                    "\n\n️发音：\n",
-                    clean_text(latin_pronunciation.group(1).strip()).replace('。', '\n') if latin_pronunciation else '拉丁发音结果未找到',
-                    "\n\n🇨🇳谐音：\n",
-                    clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到',
-                    "\n\n中文词语分析：\n",
-                    clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到',
-                    f"\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
-                ]
-                formatted_translation = "".join(translation_parts)
+                formatted_translation = f"----------------------------\n🇱🇦正文：\n{clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译结果未找到'}\n\n️发音：\n{clean_text(latin_pronunciation.group(1).strip().replace('。', '\n')) if latin_pronunciation else '拉丁发音结果未找到'}\n\n🇨🇳谐音：\n{clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到'}\n\n中文词语分析：\n{clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到'}\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
 
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_translation, reply_to_message_id=update.message.message_id)
 
@@ -414,43 +390,88 @@ async def start(update, context):
     username = user.username if user.username else 'default_user'
     get_user_info(user.id, username) # 确保新用户在 /start 时被录入
 
-    welcome_message = f"你好，{user.first_name}！欢迎使用老挝语翻译助手。\n\n你可以直接发送中文文本进行翻译。\n\n**主要功能：**\n- 翻译中文到老挝语 (附带拉丁发音和汉字谐音)\n- 查看你的翻译历史 (使用 /history 命令)\n- 查看个人资料 (使用 /profile 命令 或点击下方按钮)\n- 开启/关闭翻译功能 (点击下方“翻译开关”)\n\n请选择您需要的功能："
+    if user.id in ADMIN_IDS:
+        # 管理员键盘
+        admin_keyboard = [
+            ['查看统计', '设置次数'],
+            ['发送广播']
+        ]
+        reply_markup = ReplyKeyboardMarkup(admin_keyboard, resize_keyboard=True)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="欢迎，管理员！请选择要执行的操作：", reply_markup=reply_markup)
+    else:
+        # 普通用户键盘
+        keyboard = [
+            ['账号出售', '网站搭建', 'AI创业'],
+            ['网赚资源', '常用工具', '技术指导'],
+            ['翻译开关', '我的资料']
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="请选择您需要的功能：", reply_markup=reply_markup)
 
-    keyboard = [
-        ['账号出售', '网站搭建', 'AI创业'],
-        ['网赚资源', '常用工具', '技术指导'],
-        ['翻译开关', '我的资料']
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message, reply_markup=reply_markup)
+async def admin_button_click(update: Update, context: CallbackContext):
+    user = update.effective_user
+    if user.id in ADMIN_IDS:
+        button_text = update.message.text
+        if button_text == '查看统计':
+            await admin_stats(update, context)
+        elif button_text == '设置次数':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`设置次数 <用户ID> <新的次数>`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            context.user_data['expecting_admin_set_limit'] = True
+        elif button_text == '发送广播':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
+            context.user_data['expecting_admin_broadcast'] = True
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效的管理操作。")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此操作。")
+
+async def handle_admin_input(update: Update, context: CallbackContext):
+    user = update.effective_user
+    if user.id in ADMIN_IDS:
+        if context.user_data.get('expecting_admin_set_limit'):
+            text = update.message.text
+            parts = text.split()
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                target_user_id = int(parts[0])
+                new_limit = int(parts[1])
+                await admin_set_limit(update, context) # 直接调用现有的命令处理函数
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            context.user_data['expecting_admin_set_limit'] = False
+        elif context.user_data.get('expecting_admin_broadcast'):
+            message = update.message.text
+            await admin_broadcast(update, context.bot, [message]) # 需要将 message 包装成列表传递给 context.args
+            context.user_data['expecting_admin_broadcast'] = False
 
 async def button_click(update, context):
     user = update.effective_user
-    user_id = user.id
-    button_text = update.message.text
-
-    if button_text == '翻译开关':
-        if user_id not in user_translation_status or user_translation_status[user_id] == 'disabled':
-            user_translation_status[user_id] = 'enabled'
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已开启。")
-        else:
-            user_translation_status[user_id] = 'disabled'
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭。")
-    elif button_text in main_keyboard_buttons:
-        keyboard = [['1', '2', '3'], ['4', '5', '6'], ['返回主键盘']]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"请选择 {button_text} 的子功能：", reply_markup=reply_markup)
-    elif button_text in ['1', '2', '3', '4', '5', '6']:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"您选择了 {button_text}。")
-    elif button_text == '返回主键盘':
-        await start(update, context)
-    elif button_text == '我的资料':
-        await profile(update, context)
+    if user.id in ADMIN_IDS:
+        await admin_button_click(update, context)
     else:
-        if user_id in user_translation_status and user_translation_status[user_id] == 'enabled':
-            await translate(update,context)
+        # 普通用户的按钮点击逻辑保持不变
+        button_text = update.message.text
+        if button_text == '翻译开关':
+            if user.id not in user_translation_status or user_translation_status[user.id] == 'disabled':
+                user_translation_status[user.id] = 'enabled'
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已开启。")
+            else:
+                user_translation_status[user.id] = 'disabled'
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭。")
+        elif button_text in main_keyboard_buttons:
+            keyboard = [['1', '2', '3'], ['4', '5', '6'], ['返回主键盘']]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"请选择 {button_text} 的子功能：", reply_markup=reply_markup)
+        elif button_text in ['1', '2', '3', '4', '5', '6']:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"您选择了 {button_text}。")
+        elif button_text == '返回主键盘':
+            await start(update, context)
+        elif button_text == '我的资料':
+            await profile(update, context)
         else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
+            if user.id in user_translation_status and user_translation_status[user_id] == 'enabled':
+                await translate(update,context)
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
 
 async def send_lao_vocabulary(context: CallbackContext):
     try:
@@ -494,66 +515,31 @@ def reset_user_remaining_days_status(user_id=None):
     else:
         user_remaining_days_status = {}
 
-async def handle_admin_input(update: Update, context: CallbackContext):
-    message_text = update.message.text
-    if message_text.startswith("/setlimit"):
-        parts = message_text.split()
-        if len(parts) == 3 and parts[1].isdigit() and parts[2].isdigit():
-            target_user_id = int(parts[1])
-            new_limit = int(parts[2])
-            update_user_daily_limit(target_user_id, new_limit)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"管理员操作：已将用户 {target_user_id} 的每日限制设置为 {new_limit}。")
-        else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法：/setlimit <用户ID> <新的限制次数>")
-    elif message_text.startswith("/broadcast"):
-        message = message_text[len("/broadcast"):].strip()
-        if message:
-            user_ids = get_all_user_ids()
-            sent_count = 0
-            failed_count = 0
-            for user_id in user_ids:
-                try:
-                    await context.bot.send_message(chat_id=user_id, text=f"**管理员广播：**\n{message}", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-                    sent_count += 1
-                    time.sleep(0.1)
-                except Exception as e:
-                    logging.error(f"向用户 {user_id} 发送广播消息失败: {e}")
-                    failed_count += 1
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"管理员广播：已发送给 {sent_count} 位用户，{failed_count} 位发送失败。")
-        else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法：/broadcast <要广播的消息>")
-    elif message_text == "/stats":
-        await admin_stats(update, context)
-    else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="未知管理员命令。")
-
 def main():
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-        # 命令 Handler
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
+        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click)
+        application.add_handler(button_handler)
+        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), translate)
+        application.add_handler(translate_handler)
         history_handler = CommandHandler('history', history)
         application.add_handler(history_handler)
         profile_handler = CommandHandler('profile', profile)
         application.add_handler(profile_handler)
         feedback_handler = CommandHandler('feedback', feedback)
         application.add_handler(feedback_handler)
+        feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
+        application.add_handler(feedback_message_handler)
         admin_stats_handler = CommandHandler('admin_stats', admin_stats)
         application.add_handler(admin_stats_handler)
         admin_set_limit_handler = CommandHandler('admin_set_limit', admin_set_limit)
         application.add_handler(admin_set_limit_handler)
         admin_broadcast_handler = CommandHandler('admin_broadcast', admin_broadcast)
         application.add_handler(admin_broadcast_handler)
-
-        # 消息 Handler (注意顺序)
-        feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
-        application.add_handler(feedback_message_handler)
-        admin_input_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), handle_admin_input)
+        admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_admin_input)
         application.add_handler(admin_input_handler)
-        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click) # 处理按钮点击和普通翻译
-        application.add_handler(button_handler)
 
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
