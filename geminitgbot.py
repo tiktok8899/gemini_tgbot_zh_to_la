@@ -374,10 +374,11 @@ async def translate(update, context):
                 translation = response.text
 
                 def replace_non_chinese(match):
-    cleaned_text = re.sub(r"[^\u4e00-\u9fa5]", "", match.group(1))
-    return '纯汉字谐音:' + cleaned_text + '\n'
+                    cleaned_text = re.sub(r"[^\u4e00-\u9fa5]", "", match.group(1))
+                    return f'纯汉字谐音:{cleaned_text}\n'
 
                 translation = re.sub(r'纯汉字谐音：(.*?)\n', replace_non_chinese, translation)
+
                 full_translation = re.search(r'完整翻译：(.*?)发音：', translation, re.DOTALL)
                 latin_pronunciation = re.search(r'发音：(.*?)纯汉字谐音：', translation, re.DOTALL)
                 chinese_homophonic = re.search(r'纯汉字谐音：(.*?)中文词语分析：', translation, re.DOTALL)
