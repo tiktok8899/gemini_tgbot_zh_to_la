@@ -1,23 +1,19 @@
 import telegram
-from telegram
-import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-from telegram.ext
-import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
-from telegram.ext.filters
-import MessageFilter
-import google.generativeai as genai
-import re
-import time
-from google.oauth2
-import service_account
-from googleapiclient.discovery
-import build
-import os
-import json
-import base64
-import random
-import logging
-import datetime
+ from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
+ from telegram.ext.filters import MessageFilter
+ import google.generativeai as genai
+ import re
+ import time
+ from google.oauth2 import service_account
+ from googleapiclient.discovery import build
+ import os
+ import json
+ import base64
+ import random
+ import logging
+ import datetime
+
 logging.basicConfig(level = logging.INFO, format = '%(asctime)s - %(levelname)s - %(message)s')
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 GEMINI_API_KEY_1 = os.environ.get('GEMINI_API_KEY_1')
