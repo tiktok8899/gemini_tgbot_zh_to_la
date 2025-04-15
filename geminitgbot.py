@@ -452,22 +452,30 @@ async def start(update, context):
     get_user_info(user.id, username) # 确保新用户在 /start 时被录入
 
     if user.id in ADMIN_IDS:
-        # 管理员键盘
+        # 管理员键盘 (美化后)
         admin_keyboard = [
-            ['查看统计', '设置次数', '设置天数'],
-            ['发送广播']
+            ['📊 查看统计', '🔢 设置次数', '🗓️ 设置天数'],
+            ['📢 发送广播']
         ]
         reply_markup = ReplyKeyboardMarkup(admin_keyboard, resize_keyboard=True)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="欢迎，管理员！请选择要执行的操作：", reply_markup=reply_markup)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="👋 欢迎，尊贵的管理员！\n\n请选择您要执行的管理操作：",
+            reply_markup=reply_markup
+        )
     else:
-        # 普通用户键盘
+        # 普通用户键盘 (美化后)
         keyboard = [
-            ['账号出售', '网站搭建', 'AI创业'],
-            ['网赚资源', '常用工具', '技术指导'],
-            ['翻译开关', '我的资料']
+            ['💰 账号出售', '🌐 网站搭建', '🚀 AI创业'],
+            ['💸 网赚资源', '🛠️ 常用工具', '👨‍🏫 技术指导'],
+            ['🔄 翻译开关', '👤 我的资料']
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="请选择您需要的功能：", reply_markup=reply_markup)
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"你好，{user.first_name}！欢迎使用我们的多功能机器人。\n\n你可以通过以下按钮体验不同的功能：",
+            reply_markup=reply_markup
+        )
 
 async def admin_button_click(update: Update, context: CallbackContext):
     user = update.effective_user
@@ -526,37 +534,37 @@ async def button_click(update, context):
     user = update.effective_user
     button_text = update.message.text
     if user.id in ADMIN_IDS:
-        if button_text == '查看统计':
+        if button_text == '📊 查看统计':
             await admin_stats(update, context)
-        elif button_text == '设置次数':
+        elif button_text == '🔢 设置次数':
             await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
             context.user_data['expecting_admin_set_limit'] = True
-        elif button_text == '设置天数':
+        elif button_text == '🗓️ 设置天数':
             await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置天数的用户ID和新的天数，格式为：`用户ID 新的天数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
             context.user_data['expecting_admin_set_days'] = True
-        elif button_text == '发送广播':
+        elif button_text == '📢 发送广播':
             await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
             context.user_data['expecting_admin_broadcast'] = True
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="无效的管理操作。")
     else:
-        # 普通用户的按钮点击逻辑保持不变
-        if button_text == '翻译开关':
+        # 普通用户的按钮点击逻辑
+        if button_text == '🔄 翻译开关':
             if user.id not in user_translation_status or user_translation_status[user.id] == 'disabled':
                 user_translation_status[user.id] = 'enabled'
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已开启。")
             else:
                 user_translation_status[user.id] = 'disabled'
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="翻译功能已关闭。")
-        elif button_text in main_keyboard_buttons:
-            keyboard = [['1', '2', '3'], ['4', '5', '6'], ['返回主键盘']]
+        elif button_text in ['💰 账号出售', '🌐 网站搭建', '🚀 AI创业', '💸 网赚资源', '🛠️ 常用工具', '👨‍🏫 技术指导']:
+            keyboard = [['1', '2', '3'], ['4', '5', '6'], ['🔙 返回主键盘']]
             reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"请选择 {button_text} 的子功能：", reply_markup=reply_markup)
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"请选择 {button_text.replace('💰 ', '').replace('🌐 ', '').replace('🚀 ', '').replace('💸 ', '').replace('🛠️ ', '').replace('👨‍🏫 ', '')} 的子功能：", reply_markup=reply_markup)
         elif button_text in ['1', '2', '3', '4', '5', '6']:
             await context.bot.send_message(chat_id=update.effective_chat.id, text=f"您选择了 {button_text}。")
-        elif button_text == '返回主键盘':
+        elif button_text == '🔙 返回主键盘':
             await start(update, context)
-        elif button_text == '我的资料':
+        elif button_text == '👤 我的资料':
             await profile(update, context)
         else:
             if user.id in user_translation_status and user_translation_status[user.id] == 'enabled':
