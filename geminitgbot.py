@@ -546,9 +546,8 @@ def main():
         admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
         application.add_handler(admin_input_handler)
 
-        # 临时注释掉 button_handler - 我们稍后会处理普通用户的按钮
-        # button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), button_click)
-        # application.add_handler(button_handler)
+        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), button_click)
+        application.add_handler(button_handler)
 
         translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), translate)
         application.add_handler(translate_handler)
@@ -570,3 +569,6 @@ def main():
         application.run_polling()
     except Exception as e:
         print(f"main 函数出错：{e}")
+
+if __name__ == '__main__':
+    main()
