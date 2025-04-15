@@ -544,7 +544,7 @@ def main():
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
 
-        async def admin_button_handler_callback(update: Update, context: CallbackContext):
+async def admin_button_handler_callback(update: Update, context: CallbackContext):
     if update.message.text in ['查看统计', '设置次数', '发送广播']:
         await admin_button_click(update, context)
     return None
