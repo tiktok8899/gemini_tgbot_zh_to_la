@@ -383,7 +383,19 @@ async def translate(update, context):
                 latin_pronunciation = re.search(r'发音：(.*?)纯汉字谐音：', translation, re.DOTALL)
                 chinese_homophonic = re.search(r'纯汉字谐音：(.*?)中文词语分析：', translation, re.DOTALL)
                 word_analysis = re.search(r'中文词语分析：(.*)', translation, re.DOTALL)
-                formatted_translation = f"----------------------------\n🇱🇦正文：\n{clean_text(full_translation.group(1).strip()).replace('。', '\\n') if full_translation else '翻译结果未找到'}\n\n️发音：\n{clean_text(latin_pronunciation.group(1).strip()).replace('。', '\\n') if latin_pronunciation else '拉丁发音结果未找到'}\n\n🇨🇳谐音：\n{clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到'}\n\n中文词语分析：\n{clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到'}\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
+
+                translation_parts = [
+                    "----------------------------\n🇱🇦正文：\n",
+                    clean_text(full_translation.group(1).strip()).replace('。', '\n') if full_translation else '翻译结果未找到',
+                    "\n\n️发音：\n",
+                    clean_text(latin_pronunciation.group(1).strip()).replace('。', '\n') if latin_pronunciation else '拉丁发音结果未找到',
+                    "\n\n🇨🇳谐音：\n",
+                    clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到',
+                    "\n\n中文词语分析：\n",
+                    clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到',
+                    f"\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
+                ]
+                formatted_translation = "".join(translation_parts)
 
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_translation, reply_to_message_id=update.message.message_id)
 
