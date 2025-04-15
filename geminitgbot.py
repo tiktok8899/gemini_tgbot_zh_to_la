@@ -193,7 +193,7 @@ def update_user_daily_limit(user_id, daily_limit):
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': f'UserStats!C{i + 2}', # 行号应该是 i + 2
+                                    'range': f'UserStats!C{i + 2}', # 行号应该是 i + 2，假设次数在 C 列
                                     'values': [[str(daily_limit)]]
                                 }
                             ]
@@ -218,7 +218,7 @@ def update_user_remaining_days(user_id, remaining_days):
                             'value_input_option': 'RAW',
                             'data': [
                                 {
-                                    'range': f'UserStats!D{i + 2}',
+                                    'range': f'UserStats!D{i + 2}', # 假设剩余天数在 D 列
                                     'values': [[str(remaining_days)]]
                                 }
                             ]
@@ -295,34 +295,53 @@ async def admin_stats(update: Update, context: CallbackContext):
                 values = result.get('values', [])
                 if values:
                     stats_text = "**用户统计：**\n"
-                    for row in values:
+                 
+
+        for row in values:
                         if row:
                             user_id = row[0]
                             translations_left = row[2] if len(row) > 2 else 'N/A'
                             stats_text += f"用户ID: `{user_id}`, 剩余次数: `{translations_left}`\n"
-                    await context.bot.send_message(chat_id=update.effective_chat.id, text=stats_text, parse_mode=telegram.constants.ParseMode.MARKDOWN)
-                else:
-                    await context.bot.send_message(chat_id=update.effective_chat.id, text="没有找到任何用户数据。")
-            except Exception as e:
-                logging.error(f"/admin_stats 命令出错: {e}")
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="获取用户统计时出错。")
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=stats_text, parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            else:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="没有找到任何用户数据。")
+        except Exception as e:
+            logging.error(f"/admin_stats 命令出错: {e}")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="获取用户统计时出错。")
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="无法连接到 Google Sheets。")
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
 
-async def admin_set_limit(update: Update, context: CallbackContext):
-    user = update.effective_user
-    if user.id in ADMIN_IDS:
-        if len(context.args) == 2 and context.args[0].isdigit() and context.args[1].isdigit():
-            target_user_id = int(context.args[0])
-            new_limit = int(context.args[1])
-            update_user_daily_limit(target_user_id, new_limit)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=f"已将用户ID `{target_user_id}` 的每日翻译次数设置为 `{new_limit}`。", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-        else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="用法: `/admin_set_limit <用户ID> <新的次数>`")
-    else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
+async def admin_set_limit(update: Update, context: CallbackContext, user_id: int, new_limit: int):
+    print(f"Admin {update.effective_user.id} setting limit {new_limit} for user {user_id}")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"已为用户 {user_id} 设置每日使用次数为 {new_limit}。")
+
+    service = get_sheets_service()
+    if service:
+        logging.info(f"admin_set_limit - SHEET_ID: {SHEET_ID}")
+        logging.info(f"admin_set_limit - SHEET_RANGE: {SHEET_RANGE}")
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+            values = result.get('values', [])
+            if values:
+                for i, row in enumerate(values):
+                    if row[0] == str(user_id):
+                        body = {
+                            'value_input_option': 'RAW',
+                            'data': [
+                                {
+                                    'range': f'UserStats!C{i + 2}', # 假设次数在 C 列，从第二行开始
+                                    'values': [[str(new_limit)]]
+                                }
+                            ]
+                        }
+                        update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
+                        print(f"admin_set_limit API response: {update_result}")
+                        return
+                print(f"警告：找不到用户 ID {user_id} 来更新每日限制。")
+        except Exception as e:
+            print(f"admin_set_limit API error: {e}")
 
 async def admin_broadcast(update: Update, context: CallbackContext, broadcast_message=None):
     user = update.effective_user
@@ -438,7 +457,7 @@ async def handle_admin_input(update: Update, context: CallbackContext):
         if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
             target_user_id = int(parts[0])
             new_limit = int(parts[1])
-            await admin_set_limit(update, context, target_user_id, new_limit) # 修改函数调用
+            await admin_set_limit(update, context, target_user_id, new_limit) # 调用修改后的 admin_set_limit
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
         context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_set_limit', None)
@@ -446,12 +465,6 @@ async def handle_admin_input(update: Update, context: CallbackContext):
         message = update.message.text
         await admin_broadcast(update, context, [message])
         context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_broadcast', None)
-
-async def admin_set_limit(update: Update, context: CallbackContext, user_id: int, new_limit: int):
-    # ... (你的 admin_set_limit 函数的逻辑，现在接收 user_id 和 new_limit 作为参数) ...
-    print(f"Admin {update.effective_user.id} setting limit {new_limit} for user {user_id}")
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"已为用户 {user_id} 设置每日使用次数为 {new_limit}。")
-    # ... (更新数据库或其他存储) ...
 
 async def button_click(update, context):
     user = update.effective_user
@@ -501,12 +514,12 @@ async def send_lao_vocabulary(context: CallbackContext):
         genai.configure(api_key=get_current_api_config()['api_key'])
         model = genai.GenerativeModel(get_current_model())
         response = model.generate_content(prompt)
-        vocabulary = response.text
+       vocabulary = response.text
 
         new_vocabulary = re.findall(r'^(.*?): (.*?)\((.*?)\)', vocabulary, re.MULTILINE)
         if new_vocabulary:
             sent_vocabulary.extend([item[1] for item in new_vocabulary])
-            
+
         user_ids = get_all_user_ids()
         for user_id in user_ids:
             try:
