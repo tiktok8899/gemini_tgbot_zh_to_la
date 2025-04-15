@@ -411,23 +411,20 @@ async def start(update, context):
 
 async def admin_button_click(update: Update, context: CallbackContext):
     user = update.effective_user
-    if user.id in ADMIN_IDS:
-        button_text = update.message.text
-        print(f"Admin {user.id} clicked button: {button_text}") # 添加打印语句
-        if button_text == '查看统计':
-            await admin_stats(update, context)
-        elif button_text == '设置次数':
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-            context.user_data['expecting_admin_set_limit'] = True
-            print(f"Admin {user.id}: expecting_admin_set_limit set to True") # 添加打印语句
-        elif button_text == '发送广播':
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
-            context.user_data['expecting_admin_broadcast'] = True
-            print(f"Admin {user.id}: expecting_admin_broadcast set to True") # 添加打印语句
-        else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="无效的管理操作。")
+    button_text = update.message.text
+    print(f"Admin {user.id} clicked button: {button_text}")
+    if button_text == '查看统计':
+        await admin_stats(update, context)
+    elif button_text == '设置次数':
+        context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_limit'] = True
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        print(f"Admin {user.id}: expecting_admin_set_limit set to True in admin_button_click")
+    elif button_text == '发送广播':
+        context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_broadcast'] = True
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
+        print(f"Admin {user.id}: expecting_admin_broadcast set to True in admin_button_click")
     else:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此操作。")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="无效的管理操作。")
 
 async def handle_admin_input(update: Update, context: CallbackContext):
     user = update.effective_user
@@ -548,14 +545,9 @@ def main():
         application.add_handler(start_handler)
 
         async def admin_button_handler_callback(update: Update, context: CallbackContext):
-            user = update.effective_user
-            print(f"admin_button_handler_callback called for user {user.id} with text: {update.message.text}")
-            print(f"context.user_data for chat {update.effective_chat.id}: {context.user_data.get(update.effective_chat.id)}")
-            if update.message.text in ['查看统计', '设置次数', '发送广播']:
-                context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_action'] = True # 添加一个通用标志
-                await admin_button_click(update, context)
-            else:
-                return None
+    if update.message.text in ['查看统计', '设置次数', '发送广播']:
+        await admin_button_click(update, context)
+    return None
 
         admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), admin_button_handler_callback)
         application.add_handler(admin_button_handler)
