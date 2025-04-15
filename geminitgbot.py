@@ -438,7 +438,7 @@ async def handle_admin_input(update: Update, context: CallbackContext):
         if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
             target_user_id = int(parts[0])
             new_limit = int(parts[1])
-            await admin_set_limit(update, context)
+            await admin_set_limit(update, context, target_user_id, new_limit) # 修改函数调用
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
         context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_set_limit', None)
@@ -446,6 +446,12 @@ async def handle_admin_input(update: Update, context: CallbackContext):
         message = update.message.text
         await admin_broadcast(update, context, [message])
         context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_broadcast', None)
+
+async def admin_set_limit(update: Update, context: CallbackContext, user_id: int, new_limit: int):
+    # ... (你的 admin_set_limit 函数的逻辑，现在接收 user_id 和 new_limit 作为参数) ...
+    print(f"Admin {update.effective_user.id} setting limit {new_limit} for user {user_id}")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"已为用户 {user_id} 设置每日使用次数为 {new_limit}。")
+    # ... (更新数据库或其他存储) ...
 
 async def button_click(update, context):
     user = update.effective_user
