@@ -430,22 +430,22 @@ async def admin_button_click(update: Update, context: CallbackContext):
 
 async def handle_admin_input(update: Update, context: CallbackContext):
     user = update.effective_user
-    if user.id in ADMIN_IDS:
-        print(f"handle_admin_input called for admin {user.id} with text: {update.message.text}, context.user_data: {context.user_data}")
-        if context.user_data.get('expecting_admin_set_limit'):
-            text = update.message.text
-            parts = text.split()
-            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-                target_user_id = int(parts[0])
-                new_limit = int(parts[1])
-                await admin_set_limit(update, context) # 直接调用现有的命令处理函数
-            else:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-            context.user_data['expecting_admin_set_limit'] = False
-        elif context.user_data.get('expecting_admin_broadcast'):
-            message = update.message.text
-            await admin_broadcast(update, context, [message]) # 需要将 message 包装成列表传递给 context.args
-            context.user_data['expecting_admin_broadcast'] = False
+    print(f"handle_admin_input called for user {user.id} with text: {update.message.text}")
+    print(f"context.user_data in handle_admin_input: {context.user_data.get(update.effective_chat.id)}")
+    if context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_set_limit'):
+        text = update.message.text
+        parts = text.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            target_user_id = int(parts[0])
+            new_limit = int(parts[1])
+            await admin_set_limit(update, context)
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_set_limit', None)
+    elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_broadcast'):
+        message = update.message.text
+        await admin_broadcast(update, context, [message])
+        context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_broadcast', None)
 
 async def button_click(update, context):
     user = update.effective_user
