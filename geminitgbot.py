@@ -534,16 +534,15 @@ def main():
         start_handler = CommandHandler('start', start)
         application.add_handler(start_handler)
 
-        # 修改后的 admin_button_handler
+        # 再次修改后的 admin_button_handler
         admin_button_handler = MessageHandler(
             Filters.TEXT & Filters.User(ADMIN_IDS),
             lambda update, context: admin_button_click(update, context)
             if update.message.text in ['查看统计', '设置次数', '发送广播']
-            else None
+            else False  # 返回 False 表示不处理
         )
         application.add_handler(admin_button_handler)
 
-        # 修改后的 admin_input_handler
         admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
         application.add_handler(admin_input_handler)
 
