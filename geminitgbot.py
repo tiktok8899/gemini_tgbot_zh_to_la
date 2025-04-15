@@ -304,10 +304,10 @@ async def admin_stats(update: Update, context: CallbackContext):
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="没有找到任何用户数据。")
         except Exception as e:
-            logging.error(f"/admin_stats 命令出错: {e}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="获取用户统计时出错。")
-        else:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="无法连接到 Google Sheets。")
+        logging.error(f"/admin_stats 命令出错: {e}")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="获取用户统计时出错。")
+    else:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="无法连接到 Google Sheets。")
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="您没有权限执行此命令。")
 
