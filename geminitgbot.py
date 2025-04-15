@@ -413,6 +413,8 @@ async def admin_button_click(update: Update, context: CallbackContext):
     user = update.effective_user
     button_text = update.message.text
     print(f"Admin {user.id} clicked button: {button_text}")
+    print(f"Chat ID: {update.effective_chat.id}")
+    print(f"context.bot.application.user_data for chat {update.effective_chat.id}: {context.bot.application.user_data.get(update.effective_chat.id)}")
     if button_text == '查看统计':
         await admin_stats(update, context)
     elif button_text == '设置次数':
