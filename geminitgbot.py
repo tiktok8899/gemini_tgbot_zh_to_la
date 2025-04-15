@@ -1,6 +1,6 @@
 import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext, BaseFilter
 import google.generativeai as genai
 import re
 import time
@@ -528,6 +528,18 @@ def reset_user_remaining_days_status(user_id=None):
     else:
         user_remaining_days_status = {}
 
+class ExpectingAdminInput(BaseFilter):
+    def filter(self, message):
+        user_id = message.from_user.id
+        return user_id in ADMIN_IDS and (
+            message.chat.id in message._bot.application.user_data and (
+                message._bot.application.user_data[message.chat.id].get('expecting_admin_set_limit') is True or
+                message._bot.application.user_data[message.chat.id].get('expecting_admin_broadcast') is True
+            )
+        )
+
+expecting_admin_input_filter = ExpectingAdminInput()
+
 def main():
     try:
         application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
@@ -543,7 +555,7 @@ def main():
         admin_button_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), admin_button_handler_callback)
         application.add_handler(admin_button_handler)
 
-        admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS), handle_admin_input)
+        admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS) & expecting_admin_input_filter, handle_admin_input)
         application.add_handler(admin_input_handler)
 
         button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), button_click)
