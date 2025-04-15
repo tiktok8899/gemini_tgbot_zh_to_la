@@ -550,7 +550,7 @@ def main():
         # 消息 Handler (注意顺序)
         feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
         application.add_handler(feedback_message_handler)
-        admin_input_handler = MessageHandler(Filters.TEXT & Filters.user(ADMIN_IDS), handle_admin_input)
+        admin_input_handler = MessageHandler(Filters.TEXT & Filters.User(ADMIN_IDS), handle_admin_input)
         application.add_handler(admin_input_handler)
         button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), button_click) # 处理按钮点击和普通翻译
         application.add_handler(button_handler)
