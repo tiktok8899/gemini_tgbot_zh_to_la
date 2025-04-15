@@ -557,20 +557,19 @@ def main():
         admin_input_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & Filters.User(ADMIN_IDS) & expecting_admin_input_filter, handle_admin_input)
         application.add_handler(admin_input_handler)
 
-        button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), button_click)
-        application.add_handler(button_handler)
-
-        translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), translate)
-        application.add_handler(translate_handler)
-
-        history_handler = CommandHandler('history', history)
-        application.add_handler(history_handler)
-        profile_handler = CommandHandler('profile', profile)
-        application.add_handler(profile_handler)
-        feedback_handler = CommandHandler('feedback', feedback)
-        application.add_handler(feedback_handler)
-        feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
-        application.add_handler(feedback_message_handler)
+        # 注释掉其他的 Handler
+        # button_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), button_click)
+        # application.add_handler(button_handler)
+        # translate_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND) & (~Filters.User(ADMIN_IDS)), translate)
+        # application.add_handler(translate_handler)
+        # history_handler = CommandHandler('history', history)
+        # application.add_handler(history_handler)
+        # profile_handler = CommandHandler('profile', profile)
+        # application.add_handler(profile_handler)
+        # feedback_handler = CommandHandler('feedback', feedback)
+        # application.add_handler(feedback_handler)
+        # feedback_message_handler = MessageHandler(Filters.TEXT & (~Filters.COMMAND), handle_feedback_message)
+        # application.add_handler(feedback_message_handler)
 
         target_time = datetime.time(hour=0, minute=0, second=0)
         application.job_queue.run_daily(reset_user_daily_limit_status, time=target_time)
