@@ -1,6 +1,7 @@
 import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext, BaseFilter
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters as Filters, CallbackContext
+from telegram.ext.filters import MessageFilter
 import google.generativeai as genai
 import re
 import time
@@ -528,8 +529,8 @@ def reset_user_remaining_days_status(user_id=None):
     else:
         user_remaining_days_status = {}
 
-class ExpectingAdminInput(BaseFilter):
-    def filter(self, message):
+class ExpectingAdminInput(MessageFilter):
+    def filter(self, message: telegram.Message) -> bool:
         user_id = message.from_user.id
         return user_id in ADMIN_IDS and (
             message.chat.id in message._bot.application.user_data and (
