@@ -265,7 +265,7 @@ async def profile(update: Update, context: CallbackContext):
     user_id = user.id
     user_info = get_user_info(user_id)
     if user_info:
-        profile_text = f"**您的个人资料**\n\n用户ID: `{user_info['user_id']}`\n用户名: `{user_info['username']}`\n今日剩余翻译次数: `{user_info['daily_limit']}`\n加入日期: `{user_info['join_date']}`"
+        profile_text = f"**您的个人资料**\n\n用户ID: `{user_info['user_id']}`\n用户名: `{user_info['username']}`\n今日剩余翻译次数: `{user_info['daily_limit']}`\n剩余天数: `{user_info['remaining_days']}`\n加入日期: `{user_info['join_date']}`"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=profile_text, parse_mode=telegram.constants.ParseMode.MARKDOWN)
     else:
         await context.bot.send_message(chat_id=update.effective_chat.id, text="无法获取您的个人资料。")
@@ -298,7 +298,7 @@ async def admin_stats(update: Update, context: CallbackContext):
     if user.id in ADMIN_IDS:
         service = get_sheets_service()
         if service:
-            range_name = f'{SHEET_RANGE.split("!")[0]}!A:C'  # 获取用户 ID 和剩余次数
+            range_name = f'{SHEET_RANGE.split("!")[0]}!A:D'  # 获取用户 ID 和剩余次数
             try:
                 result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=range_name).execute()
                 values = result.get('values', [])
@@ -308,7 +308,8 @@ async def admin_stats(update: Update, context: CallbackContext):
                         if row:
                             user_id = row[0]
                             translations_left = row[2] if len(row) > 2 else 'N/A'
-                            stats_text += f"用户ID: `{user_id}`, 剩余次数: `{translations_left}`\n"
+                            remaining_days = row[3] if len(row) > 3 else 'N/A'
+                            stats_text += f"用户ID: `{user_id}`, 剩余次数: `{translations_left}`, 剩余天数: `{remaining_days}`\n"
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=stats_text, parse_mode=telegram.constants.ParseMode.MARKDOWN)
                 else:
                     await context.bot.send_message(chat_id=update.effective_chat.id, text="没有找到任何用户数据。")
@@ -350,6 +351,36 @@ async def admin_set_limit(update: Update, context: CallbackContext, user_id: int
         except Exception as e:
             print(f"admin_set_limit API error: {e}")
 
+async def admin_set_days(update: Update, context: CallbackContext, user_id: int, new_days: int):
+    print(f"Admin {update.effective_user.id} setting days {new_days} for user {user_id}")
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"已为用户 {user_id} 设置剩余天数为 {new_days}。")
+
+    service = get_sheets_service()
+    if service:
+        logging.info(f"admin_set_days - SHEET_ID: {SHEET_ID}")
+        logging.info(f"admin_set_days - SHEET_RANGE: {SHEET_RANGE}")
+        try:
+            result = service.spreadsheets().values().get(spreadsheetId=SHEET_ID, range=SHEET_RANGE).execute()
+            values = result.get('values', [])
+            if values:
+                for i, row in enumerate(values):
+                    if row[0] == str(user_id):
+                        body = {
+                            'value_input_option': 'RAW',
+                            'data': [
+                                {
+                                    'range': f'UserStats!D{i + 2}', # 假设剩余天数在 D 列，从第二行开始
+                                    'values': [[str(new_days)]]
+                                }
+                            ]
+                        }
+                        update_result = service.spreadsheets().values().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
+                        print(f"admin_set_days API response: {update_result}")
+                        return
+                print(f"警告：找不到用户 ID {user_id} 来更新剩余天数。")
+        except Exception as e:
+            print(f"admin_set_days API error: {e}")
+
 async def admin_broadcast(update: Update, context: CallbackContext, broadcast_message=None):
     user = update.effective_user
     if user.id in ADMIN_IDS:
@@ -385,7 +416,7 @@ async def translate(update, context):
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="免费用户每次翻译内容不能超过20字，文字较多可以断句分次发送。")
                 return
 
-            if user_info['daily_limit'] > 0:
+            if user_info['daily_limit'] > 0 and user_info['remaining_days'] > 0:
                 prompt = f"将以下中文文本翻译成老挝语，并用拉丁语展示老挝语的发音，返回中文注释、老挝语发音和纯汉字谐音。中文文本：{user_text}。格式：\n\n完整翻译：\n发音：（内容用拉丁语）\n纯汉字谐音：\n中文词语分析：（中文词语：老挝词语 （纯汉字谐音））"
                 genai.configure(api_key=get_current_api_config()['api_key'])
                 model = genai.GenerativeModel(get_current_model())
@@ -398,12 +429,15 @@ async def translate(update, context):
                 chinese_homophonic = re.search(r'纯汉字谐音：(.*?)中文词语分析：', translation, re.DOTALL)
                 word_analysis = re.search(r'中文词语分析：(.*)', translation, re.DOTALL)
 
-                formatted_translation = f"----------------------------\n🇱🇦正文：\n{clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译结果未找到'}\n\n️发音：\n{clean_text(latin_pronunciation.group(1).strip().replace('。', '\n')) if latin_pronunciation else '拉丁发音结果未找到'}\n\n🇨🇳谐音：\n{clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到'}\n\n中文词语分析：\n{clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到'}\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}"
+                formatted_translation = f"----------------------------\n🇱🇦正文：\n{clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译结果未找到'}\n\n️发音：\n{clean_text(latin_pronunciation.group(1).strip().replace('。', '\n')) if latin_pronunciation else '拉丁发音结果未找到'}\n\n🇨🇳谐音：\n{clean_text(chinese_homophonic.group(1).strip()) if chinese_homophonic else '谐音结果未找到'}\n\n中文词语分析：\n{clean_text(word_analysis.group(1).strip()) if word_analysis else '词语分析结果未找到'}\n\n今日剩余翻译次数：{user_info['daily_limit'] - 1}\n剩余天数：{user_info['remaining_days'] - 1}"
 
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=formatted_translation, reply_to_message_id=update.message.message_id)
 
                 update_user_daily_limit(user_id, user_info['daily_limit'] - 1)
+                update_user_remaining_days(user_id, user_info['remaining_days'] - 1)
                 await save_translation_history(user_id, user_text, clean_text(full_translation.group(1).strip().replace('。', '\n')) if full_translation else '翻译失败')
+            elif user_info['remaining_days'] <= 0:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="您的试用天数已用完，升级为vip用户体验更完美")
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="今日翻译次数已用完，明日可以继续使用，升级为vip用户体验更完美")
         else:
@@ -420,7 +454,7 @@ async def start(update, context):
     if user.id in ADMIN_IDS:
         # 管理员键盘
         admin_keyboard = [
-            ['查看统计', '设置次数'],
+            ['查看统计', '设置次数', '设置天数'],
             ['发送广播']
         ]
         reply_markup = ReplyKeyboardMarkup(admin_keyboard, resize_keyboard=True)
@@ -447,6 +481,10 @@ async def admin_button_click(update: Update, context: CallbackContext):
         context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_limit'] = True
         await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
         print(f"Admin {user.id}: expecting_admin_set_limit set to True in admin_button_click")
+    elif button_text == '设置天数':
+        context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_days'] = True
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置天数的用户ID和新的天数，格式为：`用户ID 新的天数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        print(f"Admin {user.id}: expecting_admin_set_days set to True in admin_button_click")
     elif button_text == '发送广播':
         context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_broadcast'] = True
         await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
@@ -468,9 +506,20 @@ async def handle_admin_input(update: Update, context: CallbackContext):
         else:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
         context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_set_limit', None)
+    elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_set_days'):
+        text = update.message.text
+        parts = text.split()
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            target_user_id = int(parts[0])
+            new_days = int(parts[1])
+            await admin_set_days(update, context, target_user_id, new_days)
+        else:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="格式错误。请发送：`用户ID 新的天数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_set_days', None)
     elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_broadcast'):
         message = update.message.text
-        await admin_broadcast(update, context, [message])
+        await admin_broadcast(update, context,
+[message])
         context.user_data.get(update.effective_chat.id, {}).pop('expecting_admin_broadcast', None)
 
 async def button_click(update, context):
@@ -482,6 +531,9 @@ async def button_click(update, context):
         elif button_text == '设置次数':
             await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
             context.user_data['expecting_admin_set_limit'] = True
+        elif button_text == '设置天数':
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置天数的用户ID和新的天数，格式为：`用户ID 新的天数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            context.user_data['expecting_admin_set_days'] = True
         elif button_text == '发送广播':
             await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
             context.user_data['expecting_admin_broadcast'] = True
@@ -507,7 +559,7 @@ async def button_click(update, context):
         elif button_text == '我的资料':
             await profile(update, context)
         else:
-            if user.id in user_translation_status and user_translation_status[user_id] == 'enabled':
+            if user.id in user_translation_status and user_translation_status[user.id] == 'enabled':
                 await translate(update,context)
             else:
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="无效输入，请从主菜单开启翻译")
@@ -560,7 +612,8 @@ class ExpectingAdminInput(MessageFilter):
         return user_id in ADMIN_IDS and (
             message.chat.id in context.user_data and (
                 context.user_data[message.chat.id].get('expecting_admin_set_limit') is True or
-                context.user_data[message.chat.id].get('expecting_admin_broadcast') is True
+                context.user_data[message.chat.id].get('expecting_admin_broadcast') is True or
+                context.user_data[message.chat.id].get('expecting_admin_set_days') is True
             )
         )
 
@@ -580,11 +633,17 @@ def main():
                 context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_limit'] = True
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置次数的用户ID和新的次数，格式为：`用户ID 新的次数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
                 print(f"Admin {update.effective_user.id}: expecting_admin_set_limit set to True in admin_button_click")
+            elif update.message.text == '设置天数':
+                context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_set_days'] = True
+                await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要设置天数的用户ID和新的天数，格式为：`用户ID 新的天数`", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+                print(f"Admin {update.effective_user.id}: expecting_admin_set_days set to True in admin_button_click")
             elif update.message.text == '发送广播':
                 context.user_data.setdefault(update.effective_chat.id, {})['expecting_admin_broadcast'] = True
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="请发送要广播的消息内容：")
                 print(f"Admin {update.effective_user.id}: expecting_admin_broadcast set to True in admin_button_click")
             elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_set_limit') and update.message.text != '设置次数':
+                await handle_admin_input(update, context)
+            elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_set_days') and update.message.text != '设置天数':
                 await handle_admin_input(update, context)
             elif context.user_data.get(update.effective_chat.id, {}).get('expecting_admin_broadcast') and update.message.text != '发送广播':
                 await handle_admin_input(update, context)
