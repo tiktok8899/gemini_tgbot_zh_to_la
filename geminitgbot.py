@@ -287,7 +287,7 @@ async def handle_feedback_message(update: Update, context: CallbackContext):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="感谢您的反馈！")
         except Exception as e:
             logging.error(f"发送反馈给管理员时出错: {e}")
-            await context.bot.send_message(chat_id=update.effective_chat_id=update.effective_chat.id, text="发送反馈时出错，请稍后再试。")
+            await context.bot.send_message(chat_id=update.effective_chat_id, text="发送反馈时出错，请稍后再试。")
         finally:
             context.user_data['expecting_feedback'] = False
 
