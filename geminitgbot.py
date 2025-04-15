@@ -428,6 +428,7 @@ async def admin_button_click(update: Update, context: CallbackContext):
 async def handle_admin_input(update: Update, context: CallbackContext):
     user = update.effective_user
     if user.id in ADMIN_IDS:
+        print(f"Admin {user.id} sent: {update.message.text}, context.user_data: {context.user_data}")
         if context.user_data.get('expecting_admin_set_limit'):
             text = update.message.text
             parts = text.split()
@@ -440,7 +441,7 @@ async def handle_admin_input(update: Update, context: CallbackContext):
             context.user_data['expecting_admin_set_limit'] = False
         elif context.user_data.get('expecting_admin_broadcast'):
             message = update.message.text
-            await admin_broadcast(update, context.bot, [message]) # 需要将 message 包装成列表传递给 context.args
+            await admin_broadcast(update, context, [message]) # 需要将 message 包装成列表传递给 context.args
             context.user_data['expecting_admin_broadcast'] = False
 
 async def button_click(update, context):
