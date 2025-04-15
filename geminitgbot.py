@@ -295,9 +295,7 @@ async def admin_stats(update: Update, context: CallbackContext):
                 values = result.get('values', [])
                 if values:
                     stats_text = "**用户统计：**\n"
-                 
-
-        for row in values:
+                    for row in values:
                         if row:
                             user_id = row[0]
                             translations_left = row[2] if len(row) > 2 else 'N/A'
